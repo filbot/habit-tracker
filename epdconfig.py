@@ -23,8 +23,8 @@ class RaspberryPi:
         self.PWR_PIN = PWR_PIN
 
     def digital_write(self, pin, value):
-        # if pin == CS_PIN:
-        #     return
+        if pin == CS_PIN:
+            return
         # logger.debug(f"GPIO Write: Pin {pin} -> {value}")
         GPIO.output(pin, value)
 
@@ -36,7 +36,7 @@ class RaspberryPi:
         time.sleep(delaytime / 1000.0)
 
     def spi_writebyte(self, data):
-        # logger.debug(f"SPI Write Byte: {data}")
+        logger.debug(f"SPI Write Byte: {data}")
         self.SPI.writebytes(data)
 
     def spi_writebyte2(self, data):
@@ -52,7 +52,7 @@ class RaspberryPi:
         GPIO.setup(RST_PIN, GPIO.OUT)
         GPIO.setup(DC_PIN, GPIO.OUT)
         GPIO.setup(PWR_PIN, GPIO.OUT)
-        GPIO.setup(CS_PIN, GPIO.OUT) # Manually control CS
+        # GPIO.setup(CS_PIN, GPIO.OUT) # Manually control CS
         GPIO.setup(BUSY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         
         # CS_PIN (GPIO 8) is managed by spidev driver.
@@ -63,11 +63,8 @@ class RaspberryPi:
         
         try:
             # SPI device, bus = 0, device = 0
-            # Note: We use device 0, but we manually control CS (GPIO 8).
-            # This might conflict if the kernel driver enforces CS.
-            # If this fails, we might need to try device 1 (if enabled) or use dtoverlay.
             self.SPI.open(0, 0)
-            self.SPI.max_speed_hz = 4000000 # Increased to 4MHz
+            self.SPI.max_speed_hz = 2000000
             self.SPI.mode = 0b00
         except Exception as e:
             logger.error(f"SPI Open Failed: {e}")
