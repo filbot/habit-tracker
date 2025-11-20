@@ -158,8 +158,8 @@ def draw_stats(epd, stats):
     width = epd.height
     height = epd.width
     
-    # White background (255)
-    Himage_black = Image.new('1', (width, height), 255) 
+    # Black background (0)
+    Himage_black = Image.new('1', (width, height), 0) 
     Himage_red = Image.new('1', (width, height), 255)
     
     draw_black = ImageDraw.Draw(Himage_black)
@@ -193,7 +193,7 @@ def draw_stats(epd, stats):
     # anchor="mm" centers text at xy
     draw_red.text((width // 2, top_height // 2), msg, font=font_msg, fill=0, anchor="mm")
     
-    # --- Bottom Half: Stats Boxes (Black) ---
+    # --- Bottom Half: Stats Boxes (White on Black) ---
     stats_data = [
         ("Week", str(vol)),
         ("Streak", str(streak)),
@@ -208,19 +208,19 @@ def draw_stats(epd, stats):
         x_start = padding + (i * (box_width + padding))
         x_end = x_start + box_width
         
-        # Draw Box Outline
-        draw_black.rectangle([x_start, box_y_start, x_end, box_y_end], outline=0, width=1)
+        # Draw Box Outline (White=1)
+        draw_black.rectangle([x_start, box_y_start, x_end, box_y_end], outline=1, width=1)
         
         # Center of box
         box_center_x = x_start + (box_width // 2)
         
         # Draw Label (Top of box)
         label_y = box_y_start + 10
-        draw_black.text((box_center_x, label_y), label, font=font_label, fill=0, anchor="mm")
+        draw_black.text((box_center_x, label_y), label, font=font_label, fill=1, anchor="mm")
         
         # Draw Value (Center/Bottom of box)
         value_y = box_y_start + 35
-        draw_black.text((box_center_x, value_y), value, font=font_value, fill=0, anchor="mm")
+        draw_black.text((box_center_x, value_y), value, font=font_value, fill=1, anchor="mm")
     
     epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
 
