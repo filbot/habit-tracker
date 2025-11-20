@@ -21,28 +21,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STATS_FILE = os.path.join(libdir, "stats.json")
-FONT_DIR = os.path.join(libdir, "fonts", "atkinson-hyperlegible-mono")
-DEFAULT_FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-
-# Global to store selected font path
-CURRENT_FONT_PATH = DEFAULT_FONT_PATH
-
-FONT_MAP = {
-    "Regular": "AtkinsonHyperlegibleMono-Regular.otf",
-    "Bold": "AtkinsonHyperlegibleMono-Bold.otf",
-    "Italic": "AtkinsonHyperlegibleMono-RegularItalic.otf",
-    "BoldItalic": "AtkinsonHyperlegibleMono-BoldItalic.otf",
-    "ExtraBold": "AtkinsonHyperlegibleMono-ExtraBold.otf",
-    "ExtraBoldItalic": "AtkinsonHyperlegibleMono-ExtraBoldItalic.otf",
-    "Light": "AtkinsonHyperlegibleMono-Light.otf",
-    "LightItalic": "AtkinsonHyperlegibleMono-LightItalic.otf",
-    "Medium": "AtkinsonHyperlegibleMono-Medium.otf",
-    "MediumItalic": "AtkinsonHyperlegibleMono-MediumItalic.otf",
-    "SemiBold": "AtkinsonHyperlegibleMono-SemiBold.otf",
-    "SemiBoldItalic": "AtkinsonHyperlegibleMono-SemiBoldItalic.otf",
-    "ExtraLight": "AtkinsonHyperlegibleMono-ExtraLight.otf",
-    "ExtraLightItalic": "AtkinsonHyperlegibleMono-ExtraLightItalic.otf",
-}
+FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 def load_stats():
     if os.path.exists(STATS_FILE):
@@ -74,13 +53,9 @@ def save_stats(stats):
 
 def get_font(size):
     try:
-        return ImageFont.truetype(CURRENT_FONT_PATH, size)
+        return ImageFont.truetype(FONT_PATH, size)
     except IOError:
-        # Fallback to default if custom font fails, then to system default
-        try:
-            return ImageFont.truetype(DEFAULT_FONT_PATH, size)
-        except IOError:
-            return ImageFont.load_default()
+        return ImageFont.load_default()
 
 def fit_text(draw, text, max_width, max_height):
     size = 10
@@ -223,19 +198,7 @@ def draw_stats(epd, stats):
 def main():
     parser = argparse.ArgumentParser(description='Habit Tracker Display')
     parser.add_argument('--init', action='store_true', help='Initialize display to WYAO state')
-    parser.add_argument('--font', type=str, default='Regular', help='Font variant (e.g., Bold, Regular, Italic)')
     args = parser.parse_args()
-
-    # Set global font path
-    global CURRENT_FONT_PATH
-    if args.font in FONT_MAP:
-        CURRENT_FONT_PATH = os.path.join(FONT_DIR, FONT_MAP[args.font])
-        if not os.path.exists(CURRENT_FONT_PATH):
-            logger.warning(f"Font file not found: {CURRENT_FONT_PATH}. Using default.")
-            CURRENT_FONT_PATH = DEFAULT_FONT_PATH
-    else:
-        logger.warning(f"Font '{args.font}' not found in map. Using default. Available: {', '.join(FONT_MAP.keys())}")
-        CURRENT_FONT_PATH = DEFAULT_FONT_PATH
 
     try:
         epd = epd2in13b_V4.EPD()
