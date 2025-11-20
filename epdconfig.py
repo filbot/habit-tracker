@@ -23,9 +23,6 @@ class RaspberryPi:
         self.PWR_PIN = PWR_PIN
 
     def digital_write(self, pin, value):
-        if pin == CS_PIN:
-            # Let spidev handle CS
-            return
         GPIO.output(pin, value)
 
     def digital_read(self, pin):
@@ -48,15 +45,17 @@ class RaspberryPi:
         # Setup pins
         GPIO.setup(RST_PIN, GPIO.OUT)
         GPIO.setup(DC_PIN, GPIO.OUT)
+        GPIO.setup(CS_PIN, GPIO.OUT)
         GPIO.setup(PWR_PIN, GPIO.OUT)
         # Use Pull Down for BUSY pin to ensure it's not floating High
         GPIO.setup(BUSY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         
         GPIO.output(PWR_PIN, 1)
+        time.sleep(0.1) # Wait for power to stabilize
         
         # SPI device, bus = 0, device = 0
         self.SPI.open(0, 0)
-        self.SPI.max_speed_hz = 2000000 # 2MHz
+        self.SPI.max_speed_hz = 1000000 # 1MHz
         self.SPI.mode = 0b00
         return 0
 

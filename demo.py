@@ -17,6 +17,10 @@ import epd2in13b_V4
 logging.basicConfig(level=logging.DEBUG)
 
 try:
+    logging.info(f"Python executable: {sys.executable}")
+    if not os.path.exists('/dev/spidev0.0'):
+        logging.error("SPI device /dev/spidev0.0 not found! Enable SPI in raspi-config.")
+    
     logging.info("epd2in13b_V4 Demo")
 
     epd = epd2in13b_V4.EPD()
