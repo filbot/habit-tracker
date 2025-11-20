@@ -23,12 +23,12 @@ class RaspberryPi:
         self.PWR_PIN = PWR_PIN
 
     def digital_write(self, pin, value):
-        if pin == CS_PIN:
-            return
         GPIO.output(pin, value)
 
     def digital_read(self, pin):
-        return GPIO.input(pin)
+        val = GPIO.input(pin)
+        # logger.debug(f"Read pin {pin}: {val}")
+        return val
 
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
@@ -47,18 +47,33 @@ class RaspberryPi:
         # Setup pins
         GPIO.setup(RST_PIN, GPIO.OUT)
         GPIO.setup(DC_PIN, GPIO.OUT)
-        # CS_PIN is handled by spidev, do not setup as GPIO
         GPIO.setup(PWR_PIN, GPIO.OUT)
-        # Use Pull Down for BUSY pin to ensure it's not floating High
         GPIO.setup(BUSY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         
-        GPIO.output(PWR_PIN, 1)
-        time.sleep(0.1) # Wait for power to stabilize
+        # Manual CS Control Trick:
+        # We want to control CS (GPIO 8) manually because spidev's timing might not match
+        # what the display driver expects (or we want to be sure).
+        # However, spidev(0,0) claims GPIO 8.
+        # So we open spidev(0,1) which claims GPIO 7, leaving GPIO 8 free for us to use as generic GPIO.
+        # Note: This assumes nothing is connected to CE1 (GPIO 7).
         
-        # SPI device, bus = 0, device = 0
-        self.SPI.open(0, 0)
-        self.SPI.max_speed_hz = 1000000 # 1MHz
-        self.SPI.mode = 0b00
+        try:
+            GPIO.setup(CS_PIN, GPIO.OUT)
+            GPIO.output(CS_PIN, 1)
+            logger.debug("CS Pin setup as GPIO Output")
+            
+            # Open SPI Bus 0, Device 1 (CE1) to avoid conflict on CE0
+            self.SPI.open(0, 1)
+            self.SPI.max_speed_hz = 2000000
+            self.SPI.mode = 0b00
+            self.SPI.no_cs = True # Tell spidev not to touch CS (though it would touch CE1)
+        except Exception as e:
+            logger.error(f"Failed to setup SPI/CS: {e}")
+            return -1
+
+        GPIO.output(PWR_PIN, 1)
+        time.sleep(0.1)
+        
         return 0
 
     def module_exit(self):
