@@ -173,25 +173,54 @@ def draw_stats(epd, stats):
     streak = get_weekly_streak(history)
     total = len(history) + offset
     
-    # Layout
-    # Line 1: Week: X (Red)
-    # Line 2: Streak: Y (Black)
-    # Line 3: Total: Z (Black)
+    # Layout Constants
+    top_height = height // 2
+    padding = 3
+    box_y_start = top_height + padding
+    box_y_end = height - padding
+    box_height = box_y_end - box_y_start
     
-    font_large = get_font(28)
-    font_small = get_font(20)
+    # Calculate box width (3 boxes, 4 gaps of padding)
+    total_gap = 4 * padding
+    available_width = width - total_gap
+    box_width = available_width // 3
     
-    # Line 1: Volume (Red)
-    text_vol = f"Week: {vol}"
-    draw_red.text((10, 10), text_vol, font=font_large, fill=0)
+    # --- Top Half: Message (Red) ---
+    msg = "Keep it up!"
+    font_msg = get_font(28)
     
-    # Line 2: Streak (Black)
-    text_streak = f"Streak: {streak} wks"
-    draw_black.text((10, 50), text_streak, font=font_large, fill=0)
+    # Center message in top half
+    # anchor="mm" centers text at xy
+    draw_red.text((width // 2, top_height // 2), msg, font=font_msg, fill=0, anchor="mm")
     
-    # Line 3: Total (Black) - Smaller
-    text_total = f"Total: {total}"
-    draw_black.text((10, 90), text_total, font=font_small, fill=0)
+    # --- Bottom Half: Stats Boxes (Black) ---
+    stats_data = [
+        ("Week", str(vol)),
+        ("Streak", str(streak)),
+        ("Total", str(total))
+    ]
+    
+    font_label = get_font(12)
+    font_value = get_font(24)
+    
+    for i, (label, value) in enumerate(stats_data):
+        # Calculate box coordinates
+        x_start = padding + (i * (box_width + padding))
+        x_end = x_start + box_width
+        
+        # Draw Box Outline
+        draw_black.rectangle([x_start, box_y_start, x_end, box_y_end], outline=0, width=1)
+        
+        # Center of box
+        box_center_x = x_start + (box_width // 2)
+        
+        # Draw Label (Top of box)
+        label_y = box_y_start + 10
+        draw_black.text((box_center_x, label_y), label, font=font_label, fill=0, anchor="mm")
+        
+        # Draw Value (Center/Bottom of box)
+        value_y = box_y_start + 35
+        draw_black.text((box_center_x, value_y), value, font=font_value, fill=0, anchor="mm")
     
     epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
 
