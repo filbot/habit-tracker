@@ -16,7 +16,7 @@ if os.path.exists(libdir):
 
 import epd2in13b_V4
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 STATS_FILE = os.path.join(libdir, "stats.json")

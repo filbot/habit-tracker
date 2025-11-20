@@ -25,7 +25,6 @@ class RaspberryPi:
     def digital_write(self, pin, value):
         if pin == CS_PIN:
             return
-        # logger.debug(f"GPIO Write: Pin {pin} -> {value}")
         GPIO.output(pin, value)
 
     def digital_read(self, pin):
@@ -36,11 +35,9 @@ class RaspberryPi:
         time.sleep(delaytime / 1000.0)
 
     def spi_writebyte(self, data):
-        # logger.debug(f"SPI Write Byte: {data}")
         self.SPI.writebytes(data)
 
     def spi_writebyte2(self, data):
-        # logger.debug(f"SPI Write Bytes: {len(data)} bytes")
         self.SPI.writebytes2(data)
 
     def module_init(self):
