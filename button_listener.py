@@ -7,8 +7,9 @@ import sys
 import logging
 
 # Configuration
-BUTTON_PIN = 5
-LED_PIN = 6
+# Using BCM numbering (GPIO XX)
+BUTTON_PIN = 5  # Physical Pin 29
+LED_PIN = 6     # Physical Pin 31
 TRACKER_SCRIPT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tracker.py")
 
 # Logging setup
