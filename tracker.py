@@ -202,9 +202,9 @@ def main():
 
     try:
         epd = epd2in13b_V4.EPD()
-        logger.info("Init and Clear")
+        logger.info("Init")
         epd.init()
-        epd.clear()
+        # epd.clear() # Optimization: display() overwrites everything, so clear() is redundant and slow
         
         if args.init:
             draw_wyao(epd)
