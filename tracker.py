@@ -6,6 +6,7 @@ import time
 import logging
 import json
 import argparse
+from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 import traceback
 
@@ -26,10 +27,22 @@ def load_stats():
     if os.path.exists(STATS_FILE):
         try:
             with open(STATS_FILE, 'r') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Migration from old format
+                if 'count' in data and 'history' not in data:
+                    return {
+                        'history': [],
+                        'offset': data['count']
+                    }
+                # Ensure defaults
+                if 'history' not in data:
+                    data['history'] = []
+                if 'offset' not in data:
+                    data['offset'] = 0
+                return data
         except Exception as e:
             logger.error(f"Failed to load stats: {e}")
-    return {"count": 0}
+    return {"history": [], "offset": 0}
 
 def save_stats(stats):
     try:
@@ -55,6 +68,65 @@ def fit_text(draw, text, max_width, max_height):
             return get_font(size - 1)
         size += 1
         font = get_font(size)
+
+def get_weekly_volume(history):
+    now = datetime.now()
+    current_year, current_week, _ = now.isocalendar()
+    
+    count = 0
+    for ts in history:
+        dt = datetime.fromisoformat(ts)
+        year, week, _ = dt.isocalendar()
+        if year == current_year and week == current_week:
+            count += 1
+    return count
+
+def get_weekly_streak(history):
+    if not history:
+        return 0
+        
+    # Get set of (year, week) for all entries
+    weeks = set()
+    for ts in history:
+        dt = datetime.fromisoformat(ts)
+        weeks.add(dt.isocalendar()[:2])
+    
+    if not weeks:
+        return 0
+
+    now = datetime.now()
+    current_year, current_week, _ = now.isocalendar()
+    
+    streak = 0
+    # Check backwards from current week
+    # If current week has activity, streak starts at 1. 
+    # If not, check previous week (maybe they haven't done it yet this week, but streak is still alive? 
+    # Usually streak implies contiguous blocks. Let's be strict: if you miss a week, streak resets.
+    # But for "current streak", if I did it last week and today is Monday, my streak is still alive.
+    
+    # Let's check if current week is present
+    check_year, check_week = current_year, current_week
+    
+    # If current week is empty, check if last week was active to decide if streak is 0 or just pending
+    if (check_year, check_week) not in weeks:
+        # Move back one week
+        d = datetime.now() - timedelta(days=7)
+        check_year, check_week = d.isocalendar()[:2]
+        if (check_year, check_week) not in weeks:
+            return 0 # No activity this week or last week
+            
+    # Now count backwards
+    while (check_year, check_week) in weeks:
+        streak += 1
+        # Move back one week
+        # Simple way: create a date in that week and subtract 7 days
+        # ISO weeks are tricky to iterate mathematically without date objects
+        # Let's find a date in the current check_week
+        d = datetime.fromisocalendar(check_year, check_week, 1) # Monday of that week
+        d = d - timedelta(days=7)
+        check_year, check_week = d.isocalendar()[:2]
+        
+    return streak
 
 def draw_wyao(epd):
     logger.info("Drawing Init State (WYAO)")
@@ -93,26 +165,33 @@ def draw_stats(epd, stats):
     draw_black = ImageDraw.Draw(Himage_black)
     draw_red = ImageDraw.Draw(Himage_red)
     
-    msg = "Keep it up!"
-    count_str = str(stats['count'])
+    # Calculate Metrics
+    history = stats['history']
+    offset = stats['offset']
     
-    # Fonts
-    font_msg = get_font(30)
-    font_count = get_font(60)
+    vol = get_weekly_volume(history)
+    streak = get_weekly_streak(history)
+    total = len(history) + offset
     
-    # Draw Message (Red)
-    bbox_msg = draw_red.textbbox((0, 0), msg, font=font_msg)
-    w_msg = bbox_msg[2] - bbox_msg[0]
-    x_msg = (width - w_msg) // 2
-    y_msg = 10
-    draw_red.text((x_msg, y_msg), msg, font=font_msg, fill=0)
+    # Layout
+    # Line 1: Week: X (Red)
+    # Line 2: Streak: Y (Black)
+    # Line 3: Total: Z (Black)
     
-    # Draw Count (Black)
-    bbox_count = draw_black.textbbox((0, 0), count_str, font=font_count)
-    w_count = bbox_count[2] - bbox_count[0]
-    x_count = (width - w_count) // 2
-    y_count = y_msg + 40 # Offset
-    draw_black.text((x_count, y_count), count_str, font=font_count, fill=0)
+    font_large = get_font(28)
+    font_small = get_font(20)
+    
+    # Line 1: Volume (Red)
+    text_vol = f"Week: {vol}"
+    draw_red.text((10, 10), text_vol, font=font_large, fill=0)
+    
+    # Line 2: Streak (Black)
+    text_streak = f"Streak: {streak} wks"
+    draw_black.text((10, 50), text_streak, font=font_large, fill=0)
+    
+    # Line 3: Total (Black) - Smaller
+    text_total = f"Total: {total}"
+    draw_black.text((10, 90), text_total, font=font_small, fill=0)
     
     epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
 
@@ -132,7 +211,7 @@ def main():
         else:
             # Update stats
             stats = load_stats()
-            stats['count'] += 1
+            stats['history'].append(datetime.now().isoformat())
             save_stats(stats)
             
             # Show stats
