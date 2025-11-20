@@ -86,14 +86,10 @@ def main():
             
             font = fit_text(draw_black, text, available_width, available_height)
             
-            # Center text
-            bbox = draw_black.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
-            x = (width - text_width) // 2
-            y = (height - text_height) // 2
-            
-            draw_black.text((x, y), text, font=font, fill=1)
+            # Center text using anchor
+            x = width // 2
+            y = height // 2
+            draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
             
             epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
             
