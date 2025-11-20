@@ -1,3 +1,4 @@
 spidev
-gpiozero
+RPi.GPIO
+rpi-lgpio
 Pillow
