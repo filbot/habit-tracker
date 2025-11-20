@@ -25,7 +25,10 @@ try:
 
     epd = epd2in13b_V4.EPD()
     logging.info("init and Clear")
-    epd.init()
+    if epd.init() != 0:
+        logging.error("Failed to initialize EPD")
+        sys.exit(1)
+        
     epd.clear()
     time.sleep(1)
 

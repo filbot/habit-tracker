@@ -23,20 +23,24 @@ class RaspberryPi:
         self.PWR_PIN = PWR_PIN
 
     def digital_write(self, pin, value):
+        if pin == CS_PIN:
+            return
+        # logger.debug(f"GPIO Write: Pin {pin} -> {value}")
         GPIO.output(pin, value)
 
     def digital_read(self, pin):
         val = GPIO.input(pin)
-        # logger.debug(f"Read pin {pin}: {val}")
         return val
 
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
 
     def spi_writebyte(self, data):
+        # logger.debug(f"SPI Write Byte: {data}")
         self.SPI.writebytes(data)
 
     def spi_writebyte2(self, data):
+        # logger.debug(f"SPI Write Bytes: {len(data)} bytes")
         self.SPI.writebytes2(data)
 
     def module_init(self):
@@ -50,30 +54,21 @@ class RaspberryPi:
         GPIO.setup(PWR_PIN, GPIO.OUT)
         GPIO.setup(BUSY_PIN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
         
-        # Manual CS Control Trick:
-        # We want to control CS (GPIO 8) manually because spidev's timing might not match
-        # what the display driver expects (or we want to be sure).
-        # However, spidev(0,0) claims GPIO 8.
-        # So we open spidev(0,1) which claims GPIO 7, leaving GPIO 8 free for us to use as generic GPIO.
-        # Note: This assumes nothing is connected to CE1 (GPIO 7).
+        # CS_PIN (GPIO 8) is managed by spidev driver.
+        # We do NOT setup it as GPIO.
         
-        try:
-            GPIO.setup(CS_PIN, GPIO.OUT)
-            GPIO.output(CS_PIN, 1)
-            logger.debug("CS Pin setup as GPIO Output")
-            
-            # Open SPI Bus 0, Device 1 (CE1) to avoid conflict on CE0
-            self.SPI.open(0, 1)
-            self.SPI.max_speed_hz = 2000000
-            self.SPI.mode = 0b00
-            self.SPI.no_cs = True # Tell spidev not to touch CS (though it would touch CE1)
-        except Exception as e:
-            logger.error(f"Failed to setup SPI/CS: {e}")
-            return -1
-
         GPIO.output(PWR_PIN, 1)
         time.sleep(0.1)
         
+        try:
+            # SPI device, bus = 0, device = 0
+            self.SPI.open(0, 0)
+            self.SPI.max_speed_hz = 2000000
+            self.SPI.mode = 0b00
+        except Exception as e:
+            logger.error(f"SPI Open Failed: {e}")
+            return -1
+            
         return 0
 
     def module_exit(self):
