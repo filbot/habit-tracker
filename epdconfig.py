@@ -36,7 +36,7 @@ class RaspberryPi:
         time.sleep(delaytime / 1000.0)
 
     def spi_writebyte(self, data):
-        logger.debug(f"SPI Write Byte: {data}")
+        # logger.debug(f"SPI Write Byte: {data}")
         self.SPI.writebytes(data)
 
     def spi_writebyte2(self, data):
