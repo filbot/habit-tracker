@@ -1,77 +1,92 @@
 #!/usr/bin/python3
 import RPi.GPIO as GPIO
 import time
-import subprocess
 import os
 import sys
 import logging
+import threading
+from threading import Timer
+
+# Add current directory to path to import tracker
+sys.path.append(os.path.dirname(os.path.realpath(__file__)))
+from tracker import HabitTracker
 
 # Configuration
 # Using BCM numbering (GPIO XX)
 BUTTON_PIN = 5  # Physical Pin 29
 LED_PIN = 6     # Physical Pin 31
-TRACKER_SCRIPT = os.path.join(os.path.dirname(os.path.realpath(__file__)), "tracker.py")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def setup_gpio():
-    GPIO.setmode(GPIO.BCM)
-    GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-    GPIO.setup(LED_PIN, GPIO.OUT)
+class App:
+    def __init__(self):
+        self.setup_gpio()
+        self.tracker = HabitTracker()
+        self.reset_timer = None
+        self.lock = threading.Lock()
 
-def flash_led(times=5, interval=0.1):
-    for _ in range(times):
-        GPIO.output(LED_PIN, GPIO.LOW) # Off
-        time.sleep(interval)
-        GPIO.output(LED_PIN, GPIO.HIGH) # On
-        time.sleep(interval)
+    def setup_gpio(self):
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.setup(LED_PIN, GPIO.OUT)
+        GPIO.output(LED_PIN, GPIO.HIGH) # Initial State: LED ON
 
-def run_tracker():
-    logger.info("Running tracker script...")
-    try:
-        # Run tracker.py using the same python interpreter
-        subprocess.run([sys.executable, TRACKER_SCRIPT], check=True)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Tracker script failed: {e}")
-    except Exception as e:
-        logger.error(f"Error running tracker: {e}")
-
-def main():
-    setup_gpio()
-    logger.info("Button listener started. Press Ctrl+C to exit.")
-    
-    try:
-        # Initial State: LED ON
-        GPIO.output(LED_PIN, GPIO.HIGH)
+    def flash_led(self, times=5, interval=0.1):
+        def _flash():
+            for _ in range(times):
+                GPIO.output(LED_PIN, GPIO.LOW) # Off
+                time.sleep(interval)
+                GPIO.output(LED_PIN, GPIO.HIGH) # On
+                time.sleep(interval)
         
-        while True:
-            # Wait for button press (Falling edge because of Pull Up)
-            # Using wait_for_edge is more efficient than polling
-            GPIO.wait_for_edge(BUTTON_PIN, GPIO.FALLING)
-            
-            # Debounce / Check if it's a real press
-            time.sleep(0.05)
-            if GPIO.input(BUTTON_PIN) == GPIO.LOW:
-                logger.info("Button pressed!")
+        # Run in separate thread to not block display update
+        threading.Thread(target=_flash, daemon=True).start()
+
+    def on_reset(self):
+        logger.info("Timer expired. Resetting display.")
+        with self.lock:
+            self.tracker.reset()
+            self.tracker.sleep()
+
+    def run(self):
+        logger.info("Button listener started. Press Ctrl+C to exit.")
+        try:
+            while True:
+                # Wait for button press
+                GPIO.wait_for_edge(BUTTON_PIN, GPIO.FALLING)
                 
-                # Flash LED
-                flash_led()
-                
-                # Run Tracker
-                run_tracker()
-                
-                # Return to Idle State (LED ON)
-                GPIO.output(LED_PIN, GPIO.HIGH)
-                
-                # Simple debounce delay to prevent double triggers
-                time.sleep(0.5)
-                
-    except KeyboardInterrupt:
-        logger.info("Exiting...")
-    finally:
-        GPIO.cleanup()
+                # Debounce
+                time.sleep(0.05)
+                if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+                    logger.info("Button pressed!")
+                    
+                    # 1. Flash LED (Non-blocking)
+                    self.flash_led()
+                    
+                    # 2. Cancel existing timer if any
+                    if self.reset_timer:
+                        self.reset_timer.cancel()
+                    
+                    # 3. Update Display (Blocking, but LED is already flashing)
+                    with self.lock:
+                        self.tracker.update()
+                    
+                    # 4. Start new Reset Timer (60s)
+                    self.reset_timer = Timer(60.0, self.on_reset)
+                    self.reset_timer.start()
+                    
+                    # Simple debounce delay
+                    time.sleep(0.5)
+                    
+        except KeyboardInterrupt:
+            logger.info("Exiting...")
+            if self.reset_timer:
+                self.reset_timer.cancel()
+        finally:
+            GPIO.cleanup()
 
 if __name__ == "__main__":
-    main()
+    app = App()
+    app.run()

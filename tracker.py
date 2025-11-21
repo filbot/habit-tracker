@@ -235,37 +235,50 @@ def draw_stats(epd, stats):
     
     epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
 
+class HabitTracker:
+    def __init__(self):
+        self.epd = epd2in13b_V4.EPD()
+        logger.info("Init")
+        self.epd.init()
+        # self.epd.clear() # Optimization: display() overwrites everything
+        
+    def update(self):
+        # Update stats
+        stats = load_stats()
+        stats['history'].append(datetime.now().isoformat())
+        save_stats(stats)
+        
+        # Show stats
+        draw_stats(self.epd, stats)
+        
+    def reset(self):
+        # Revert to WYAO
+        draw_wyao(self.epd)
+        
+    def sleep(self):
+        logger.info("Goto Sleep...")
+        self.epd.sleep()
+
 def main():
     parser = argparse.ArgumentParser(description='Habit Tracker Display')
     parser.add_argument('--init', action='store_true', help='Initialize display to WYAO state')
     args = parser.parse_args()
 
     try:
-        epd = epd2in13b_V4.EPD()
-        logger.info("Init")
-        epd.init()
-        # epd.clear() # Optimization: display() overwrites everything, so clear() is redundant and slow
+        tracker = HabitTracker()
         
         if args.init:
-            draw_wyao(epd)
+            tracker.reset()
+            tracker.sleep()
         else:
-            # Update stats
-            stats = load_stats()
-            stats['history'].append(datetime.now().isoformat())
-            save_stats(stats)
-            
-            # Show stats
-            draw_stats(epd, stats)
+            tracker.update()
             
             # Wait 60 seconds
             logger.info("Waiting 60 seconds...")
             time.sleep(60)
             
-            # Revert to WYAO
-            draw_wyao(epd)
-
-        logger.info("Goto Sleep...")
-        epd.sleep()
+            tracker.reset()
+            tracker.sleep()
         
     except IOError as e:
         logger.info(e)
