@@ -274,9 +274,9 @@ def main():
         else:
             tracker.update()
             
-            # Wait 60 seconds
-            logger.info("Waiting 60 seconds...")
-            time.sleep(60)
+            # Wait 30 seconds
+            logger.info("Waiting 30 seconds...")
+            time.sleep(30)
             
             tracker.reset()
             tracker.sleep()

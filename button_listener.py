@@ -73,8 +73,8 @@ class App:
                     with self.lock:
                         self.tracker.update()
                     
-                    # 4. Start new Reset Timer (60s)
-                    self.reset_timer = Timer(60.0, self.on_reset)
+                    # 4. Start new Reset Timer (30s)
+                    self.reset_timer = Timer(30.0, self.on_reset)
                     self.reset_timer.start()
                     
                     # Simple debounce delay
