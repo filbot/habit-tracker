@@ -76,7 +76,7 @@ class RaspberryPi:
         GPIO.output(RST_PIN, 0)
         GPIO.output(DC_PIN, 0)
         GPIO.output(PWR_PIN, 0)
-        GPIO.cleanup()
+        # GPIO.cleanup() # Do not cleanup, it kills the button/LED pins!
 
 # Expose methods to module level
 implementation = RaspberryPi()
