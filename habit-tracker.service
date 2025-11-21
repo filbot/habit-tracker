@@ -1,0 +1,15 @@
+[Unit]
+Description=Habit Tracker Button Listener
+After=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/habit-tracker
+ExecStart=/usr/bin/python3 /home/pi/habit-tracker/button_listener.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

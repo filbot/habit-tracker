@@ -55,6 +55,31 @@ python3 tracker.py
 ### Physical Button Setup
 To use a physical button, wire it to a GPIO pin and configure a system service or script to run `python3 tracker.py` when the button is pressed.
 
+## Run on Boot (Systemd)
+
+To have the habit tracker run automatically when the Raspberry Pi starts:
+
+1.  **Copy the service file:**
+    ```bash
+    sudo cp habit-tracker.service /etc/systemd/system/
+    ```
+
+2.  **Reload systemd:**
+    ```bash
+    sudo systemctl daemon-reload
+    ```
+
+3.  **Enable and Start the service:**
+    ```bash
+    sudo systemctl enable habit-tracker.service
+    sudo systemctl start habit-tracker.service
+    ```
+
+4.  **Check Status:**
+    ```bash
+    sudo systemctl status habit-tracker.service
+    ```
+
 ## Troubleshooting
 *   **Display not updating?** Check SPI connections and ensure `epdconfig.py` is using the correct SPI device.
 *   **Slow updates?** E-Paper displays take ~15 seconds to refresh. This is normal hardware behavior.
