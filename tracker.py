@@ -250,14 +250,20 @@ def draw_done_screen(epd):
     draw_black = ImageDraw.Draw(image_black)
     
     font = get_font(40)
-    text = "You did it"
+    text = "YOU DID IT"
     
     # Draw White text (1) on Black background
+    # Manual centering
     bbox = font.getbbox(text)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-    x = (width - w) // 2
-    y = (height - h) // 2
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    
+    x = (width - text_width) // 2
+    y = (height - text_height) // 2
+    
+    # Adjust y slightly up if needed, but mathematical center is usually best start
+    # The previous issue "too low" might be due to font baseline. 
+    # Let's try strictly centering the bounding box.
     
     draw_black.text((x, y), text, font=font, fill=1)
     

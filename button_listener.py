@@ -32,6 +32,8 @@ def flash_led(times=3, interval=0.1):
             time.sleep(interval)
             GPIO.output(LED_PIN, GPIO.LOW)
             time.sleep(interval)
+        # Leave LED ON after flashing
+        GPIO.output(LED_PIN, GPIO.HIGH)
     threading.Thread(target=_flash).start()
 
 def get_seconds_until_3am():
