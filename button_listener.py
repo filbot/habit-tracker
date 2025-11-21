@@ -52,7 +52,7 @@ class HabitController:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(LED_PIN, GPIO.OUT)
-        GPIO.output(LED_PIN, GPIO.LOW)
+        GPIO.output(LED_PIN, GPIO.HIGH) # LED ON for WYAO
         
         # Start 3AM Scheduler
         self.schedule_reset()
@@ -70,13 +70,14 @@ class HabitController:
     def daily_reset(self):
         """Resets the display to WYAO and reschedules."""
         logger.info("Executing Daily Reset...")
+        GPIO.output(LED_PIN, GPIO.HIGH) # Turn LED ON
         self.tracker.initialize()
         self.schedule_reset()
 
     def show_done_screen(self):
         """Shows the 'You did it' screen."""
         self.tracker.draw_done_screen()
-        # LED is already off, ensuring it stays off
+        GPIO.output(LED_PIN, GPIO.LOW) # Turn LED OFF
 
     def handle_press(self):
         """Log habit, show stats, then show done screen."""
