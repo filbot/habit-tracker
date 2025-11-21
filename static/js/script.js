@@ -106,4 +106,4 @@ function renderHeatmap(dailyCounts) {
 // Init
 fetchData();
 setInterval(fetchData, 60000); // Refresh every minute
-```
+
