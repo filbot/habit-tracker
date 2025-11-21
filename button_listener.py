@@ -78,9 +78,9 @@ class HabitController:
         self.tracker.draw_done_screen()
         # LED is already off, ensuring it stays off
 
-    def handle_short_press(self):
+    def handle_press(self):
         """Log habit, show stats, then show done screen."""
-        logger.info("Short Press: Logging Habit")
+        logger.info("Button Pressed: Logging Habit")
         flash_led(1) # Quick flash confirmation
         
         # 1. Log and Show Stats
@@ -92,43 +92,21 @@ class HabitController:
         self.timer = threading.Timer(STATS_DURATION, self.show_done_screen)
         self.timer.start()
 
-    def handle_long_press(self):
-        """Manual Reset."""
-        logger.info("Long Press: Manual Reset")
-        flash_led(5, 0.05) # Rapid flash
-        
-        if self.timer:
-            self.timer.cancel()
-            
-        self.tracker.initialize()
-
     def run(self):
-        logger.info("Button Listener Started (Polling Mode)...")
+        logger.info("Button Listener Started...")
         try:
             while True:
-                input_state = GPIO.input(BUTTON_PIN)
-                
-                if input_state == False: # Button Pressed (Active Low)
-                    start_time = time.time()
-                    
-                    # Wait for release or long press threshold
-                    while GPIO.input(BUTTON_PIN) == False:
-                        time.sleep(0.1)
-                        duration = time.time() - start_time
-                        if duration >= LONG_PRESS_DURATION:
-                            # Long press detected immediately
-                            break
-                    
-                    duration = time.time() - start_time
-                    
-                    if duration >= LONG_PRESS_DURATION:
-                        self.handle_long_press()
-                        # Wait for button release to avoid double trigger
+                # Wait for button press (Active Low)
+                if GPIO.input(BUTTON_PIN) == False:
+                    # Debounce
+                    time.sleep(0.05)
+                    if GPIO.input(BUTTON_PIN) == False:
+                        self.handle_press()
+                        
+                        # Wait for release to avoid multiple triggers
                         while GPIO.input(BUTTON_PIN) == False:
                             time.sleep(0.1)
-                    else:
-                        self.handle_short_press()
-                        
+                            
                 time.sleep(0.1) # Polling rate
                 
         except KeyboardInterrupt:
