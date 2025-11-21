@@ -40,48 +40,70 @@ function renderDashboard(logs, stats) {
 }
 
 function renderHeatmap(dailyCounts) {
-    const grid = document.getElementById('heatmap');
-    grid.innerHTML = '';
+    const container = document.getElementById('heatmap');
+    container.innerHTML = '';
+    container.className = 'heatmap-year'; // Switch to flex container
 
-    // Generate last 365 days
-    const today = new Date();
-    const oneYearAgo = new Date();
-    oneYearAgo.setDate(today.getDate() - 365);
+    const now = new Date();
+    const currentYear = now.getFullYear();
 
-    // Adjust start date to align with Sunday?
-    // For simplicity, let's just show last 52 weeks (364 days)
-    // Find the Sunday 52 weeks ago
-    const startDate = new Date(today);
-    startDate.setDate(today.getDate() - 364);
-    while (startDate.getDay() !== 0) {
-        startDate.setDate(startDate.getDate() - 1);
-    }
+    // Iterate through months 0-11
+    for (let month = 0; month < 12; month++) {
+        // Create Month Block
+        const monthBlock = document.createElement('div');
+        monthBlock.className = 'month-block';
 
-    const endDate = new Date();
+        // Label
+        const monthLabel = document.createElement('div');
+        monthLabel.className = 'month-label';
+        const date = new Date(currentYear, month, 1);
+        monthLabel.innerText = date.toLocaleString('default', { month: 'short' });
+        monthBlock.appendChild(monthLabel);
 
-    let currentDate = new Date(startDate);
+        // Grid
+        const monthGrid = document.createElement('div');
+        monthGrid.className = 'month-grid';
 
-    while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
-        const count = dailyCounts[dateStr] || 0;
+        // Calculate days in month and start day
+        const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
+        const startDay = new Date(currentYear, month, 1).getDay(); // 0=Sun
 
-        const cell = document.createElement('div');
-        cell.className = 'day-cell';
+        // Add empty cells for padding
+        for (let i = 0; i < startDay; i++) {
+            const empty = document.createElement('div');
+            empty.className = 'day-cell empty';
+            monthGrid.appendChild(empty);
+        }
 
-        // Determine Level (Binary)
-        let level = 0;
-        if (count > 0) level = 1;
+        // Add days
+        for (let day = 1; day <= daysInMonth; day++) {
+            // Format YYYY-MM-DD
+            // Note: Month is 0-indexed, so +1. Pad with 0.
+            const m = String(month + 1).padStart(2, '0');
+            const d = String(day).padStart(2, '0');
+            const dateStr = `${currentYear}-${m}-${d}`;
 
-        cell.setAttribute('data-level', level);
-        cell.title = `${dateStr}: ${count} logs`;
+            const count = dailyCounts[dateStr] || 0;
 
-        grid.appendChild(cell);
+            const cell = document.createElement('div');
+            cell.className = 'day-cell';
 
-        // Next Day
-        currentDate.setDate(currentDate.getDate() + 1);
+            // Determine Level (Binary)
+            let level = 0;
+            if (count > 0) level = 1;
+
+            cell.setAttribute('data-level', level);
+            cell.title = `${dateStr}: ${count} logs`;
+
+            monthGrid.appendChild(cell);
+        }
+
+        monthBlock.appendChild(monthGrid);
+        container.appendChild(monthBlock);
     }
 }
 
 // Init
 fetchData();
 setInterval(fetchData, 60000); // Refresh every minute
+```
