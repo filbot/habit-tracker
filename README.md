@@ -80,6 +80,42 @@ To have the habit tracker run automatically when the Raspberry Pi starts:
     sudo systemctl status habit-tracker.service
     ```
 
+## Companion API Setup
+
+To enable the HTTP API for companion apps:
+
+1.  **Set up Virtual Environment**:
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+2.  **Install Dependencies**:
+    ```bash
+    pip3 install -r requirements.txt
+    ```
+
+3.  **Migrate Data** (One-time):
+    ```bash
+    python3 migrate.py
+    ```
+
+4.  **Install Services**:
+    ```bash
+    # Copy service files
+    sudo cp habit-tracker.service /etc/systemd/system/
+    sudo cp habit-api.service /etc/systemd/system/
+    
+    # Reload and enable
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now habit-tracker.service
+    sudo systemctl enable --now habit-api.service
+    ```
+
+5.  **Access API**:
+    -   Stats: `http://<PI_IP>:8000/stats`
+    -   Docs: `http://<PI_IP>:8000/docs`
+
 ## Troubleshooting
 *   **Display not updating?** Check SPI connections and ensure `epdconfig.py` is using the correct SPI device.
 *   **Slow updates?** E-Paper displays take ~15 seconds to refresh. This is normal hardware behavior.

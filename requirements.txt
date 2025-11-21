@@ -2,3 +2,5 @@ spidev
 RPi.GPIO
 rpi-lgpio
 Pillow
+fastapi
+uvicorn

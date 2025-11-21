@@ -10,6 +10,8 @@ import random
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 
+import database
+
 # Add current directory to path
 libdir = os.path.dirname(os.path.realpath(__file__))
 if os.path.exists(libdir):
@@ -20,36 +22,7 @@ import epd2in13b_V4
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-STATS_FILE = os.path.join(libdir, "stats.json")
 FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
-
-def load_stats():
-    if os.path.exists(STATS_FILE):
-        try:
-            with open(STATS_FILE, 'r') as f:
-                data = json.load(f)
-                # Migration from old format
-                if 'count' in data and 'history' not in data:
-                    return {
-                        'history': [],
-                        'offset': data['count']
-                    }
-                # Ensure defaults
-                if 'history' not in data:
-                    data['history'] = []
-                if 'offset' not in data:
-                    data['offset'] = 0
-                return data
-        except Exception as e:
-            logger.error(f"Failed to load stats: {e}")
-    return {"history": [], "offset": 0}
-
-def save_stats(stats):
-    try:
-        with open(STATS_FILE, 'w') as f:
-            json.dump(stats, f)
-    except Exception as e:
-        logger.error(f"Failed to save stats: {e}")
 
 def get_font(size):
     try:
@@ -153,7 +126,7 @@ def draw_wyao(epd):
     
     epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
 
-def draw_stats(epd, stats):
+def draw_stats(epd):
     logger.info("Drawing Update State")
     width = epd.height
     height = epd.width
@@ -165,9 +138,9 @@ def draw_stats(epd, stats):
     draw_black = ImageDraw.Draw(Himage_black)
     draw_red = ImageDraw.Draw(Himage_red)
     
-    # Calculate Metrics
-    history = stats['history']
-    offset = stats['offset']
+    # Calculate Metrics from Database
+    history = database.get_all_logs()
+    offset = database.get_offset()
     
     vol = get_weekly_volume(history)
     streak = get_weekly_streak(history)
@@ -239,17 +212,16 @@ class HabitTracker:
         self.epd = epd2in13b_V4.EPD()
         logger.info("Init")
         self.epd.init()
-        # self.epd.clear() # Optimization: display() overwrites everything
+        # Ensure DB is initialized
+        database.init_db()
         
     def update(self):
         self.epd.init() # Ensure awake and SPI open
-        # Update stats
-        stats = load_stats()
-        stats['history'].append(datetime.now().isoformat())
-        save_stats(stats)
+        # Update stats in DB
+        database.add_log()
         
         # Show stats
-        draw_stats(self.epd, stats)
+        draw_stats(self.epd)
         
     def reset(self):
         self.epd.init() # Ensure awake and SPI open
