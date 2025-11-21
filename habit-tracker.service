@@ -4,9 +4,9 @@ After=multi-user.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/habit-tracker
-ExecStart=/usr/bin/python3 /home/pi/habit-tracker/button_listener.py
+User=filip
+WorkingDirectory=/home/filip/habit-tracker
+ExecStart=/usr/bin/python3 /home/filip/habit-tracker/button_listener.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
