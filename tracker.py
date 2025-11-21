@@ -253,19 +253,15 @@ def draw_done_screen(epd):
     text = "YOU DID IT"
     
     # Draw White text (1) on Black background
-    # Manual centering
-    bbox = font.getbbox(text)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
+    # Center text using anchor="mm" (Middle-Middle)
+    x = width // 2
+    y = height // 2
     
-    x = (width - text_width) // 2
-    y = (height - text_height) // 2
-    
-    # Adjust y slightly up if needed, but mathematical center is usually best start
-    # The previous issue "too low" might be due to font baseline. 
-    # Let's try strictly centering the bounding box.
-    
-    draw_black.text((x, y), text, font=font, fill=1)
+    # Nudge y up slightly because 'mm' centers based on full line height/bbox
+    # and for all-caps, visual center is slightly higher than mathematical center
+    # if the font has descender space.
+    # But let's try pure 'mm' first as it's standard.
+    draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
     
     epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
 

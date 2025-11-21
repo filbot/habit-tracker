@@ -78,8 +78,8 @@ class HabitController:
 
     def show_done_screen(self):
         """Shows the 'You did it' screen."""
+        GPIO.output(LED_PIN, GPIO.LOW) # Turn LED OFF immediately
         self.tracker.draw_done_screen()
-        GPIO.output(LED_PIN, GPIO.LOW) # Turn LED OFF
 
     def handle_press(self):
         """Log habit, show stats, then show done screen."""
