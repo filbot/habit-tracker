@@ -1,20 +1,3 @@
-const canvas = document.getElementById('orbitCanvas');
-const ctx = canvas.getContext('2d');
-
-let width, height;
-let logs = [];
-let stats = {};
-
-// Resize Canvas
-function resize() {
-    width = window.innerWidth;
-    height = window.innerHeight;
-    canvas.width = width;
-    canvas.height = height;
-}
-window.addEventListener('resize', resize);
-resize();
-
 // Fetch Data
 async function fetchData() {
     try {
@@ -23,136 +6,85 @@ async function fetchData() {
             fetch('/stats')
         ]);
 
-        logs = await logsRes.json();
-        stats = await statsRes.json();
+        const logs = await logsRes.json();
+        const stats = await statsRes.json();
 
-        updateHUD();
+        renderDashboard(logs, stats);
     } catch (e) {
         console.error("Fetch failed", e);
     }
 }
 
-function updateHUD() {
-    // Update Text Stats
-    document.getElementById('total-logs').innerText = stats.total || 0;
-    document.getElementById('last-sync').innerText = new Date().toLocaleTimeString();
+function renderDashboard(logs, stats) {
+    // 1. Update Header Date
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('current-date').innerText = new Date().toLocaleDateString('en-US', options);
 
-    // Update Charts
-    // Volume (Goal: 7/week?)
-    const vol = stats.volume || 0;
-    const volPct = Math.min((vol / 7) * 100, 100);
-    updateChart('volume-chart', volPct, vol);
-
-    // Streak (Goal: 4 weeks?)
-    const streak = stats.streak || 0;
-    const streakPct = Math.min((streak / 4) * 100, 100);
-    updateChart('streak-chart', streakPct, streak);
-}
-
-function updateChart(id, percent, value) {
-    const chart = document.getElementById(id);
-    const circle = chart.querySelector('.circle');
-    const text = chart.querySelector('.percentage');
-
-    circle.setAttribute('stroke-dasharray', `${percent}, 100`);
-    text.textContent = value;
-}
-
-// Animation Loop
-let time = 0;
-
-function draw() {
-    ctx.fillStyle = '#05070a';
-    ctx.fillRect(0, 0, width, height);
-
-    const cx = width / 2;
-    const cy = height / 2;
-
-    // Draw Grid
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
-    ctx.lineWidth = 1;
-
-    // Concentric Circles (Orbits)
-    const rings = [100, 200, 300, 400];
-    rings.forEach((r, i) => {
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Rotating markers on rings
-        const angle = time * (0.001 * (i % 2 ? 1 : -1)) + (i * 10);
-        const mx = cx + Math.cos(angle) * r;
-        const my = cy + Math.sin(angle) * r;
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.beginPath();
-        ctx.arc(mx, my, 2, 0, Math.PI * 2);
-        ctx.fill();
+    // 2. Process Logs into Daily Counts
+    const dailyCounts = {};
+    logs.forEach(ts => {
+        const date = ts.split('T')[0]; // YYYY-MM-DD
+        dailyCounts[date] = (dailyCounts[date] || 0) + 1;
     });
 
-    // Draw Core
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = '#ffffff';
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    // 3. Update Cards
+    const today = new Date().toISOString().split('T')[0];
+    const todayCount = dailyCounts[today] || 0;
 
-    // Draw Logs as Nodes
-    // We map logs to positions based on time
-    // Recent logs are closer to the center? Or further?
-    // Let's make recent logs closer to center (Gravity)
+    document.getElementById('today-count').innerText = todayCount;
+    document.getElementById('streak-count').innerText = stats.streak || 0;
+    document.getElementById('total-count').innerText = stats.total || 0;
 
-    const now = new Date().getTime();
-    const maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+    // 4. Render Heatmap
+    renderHeatmap(dailyCounts);
+}
 
-    logs.forEach((ts, i) => {
-        const date = new Date(ts).getTime();
-        const age = now - date;
+function renderHeatmap(dailyCounts) {
+    const grid = document.getElementById('heatmap');
+    grid.innerHTML = '';
 
-        if (age > maxAge) return; // Too old
+    // Generate last 365 days
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(today.getDate() - 365);
 
-        // Calculate radius based on age (Newer = Closer)
-        // Min radius 50, Max radius 400
-        const r = 50 + (age / maxAge) * 350;
+    // Adjust start date to align with Sunday?
+    // For simplicity, let's just show last 52 weeks (364 days)
+    // Find the Sunday 52 weeks ago
+    const startDate = new Date(today);
+    startDate.setDate(today.getDate() - 364);
+    while (startDate.getDay() !== 0) {
+        startDate.setDate(startDate.getDate() - 1);
+    }
 
-        // Angle based on time of day? Or just spread out?
-        // Let's use the timestamp to generate a deterministic angle
-        const angle = (date % 86400000) / 86400000 * Math.PI * 2;
+    const endDate = new Date();
 
-        // Add some slow rotation
-        const rotation = time * 0.0005;
-        const finalAngle = angle + rotation;
+    let currentDate = new Date(startDate);
 
-        const x = cx + Math.cos(finalAngle) * r;
-        const y = cy + Math.sin(finalAngle) * r;
+    while (currentDate <= endDate) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const count = dailyCounts[dateStr] || 0;
 
-        // Draw Connection Line
-        ctx.strokeStyle = 'rgba(255, 50, 50, 0.1)';
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(x, y);
-        ctx.stroke();
+        const cell = document.createElement('div');
+        cell.className = 'day-cell';
 
-        // Draw Node
-        const isRecent = age < (24 * 60 * 60 * 1000); // Last 24h
+        // Determine Level
+        let level = 0;
+        if (count > 0) level = 1;
+        if (count > 2) level = 2;
+        if (count > 4) level = 3;
+        if (count > 6) level = 4;
 
-        ctx.shadowBlur = isRecent ? 15 : 5;
-        ctx.shadowColor = isRecent ? '#ff3333' : '#ffffff';
-        ctx.fillStyle = isRecent ? '#ff3333' : '#ffffff';
+        cell.setAttribute('data-level', level);
+        cell.title = `${dateStr}: ${count} logs`;
 
-        ctx.beginPath();
-        ctx.arc(x, y, isRecent ? 4 : 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-    });
+        grid.appendChild(cell);
 
-    time += 16;
-    requestAnimationFrame(draw);
+        // Next Day
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
 }
 
 // Init
 fetchData();
-setInterval(fetchData, 30000); // Refresh every 30s
-draw();
+setInterval(fetchData, 60000); // Refresh every minute
