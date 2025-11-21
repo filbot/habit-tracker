@@ -82,7 +82,7 @@ class HabitController:
     def handle_press(self):
         """Log habit, show stats, then show done screen."""
         logger.info("Button Pressed: Logging Habit")
-        flash_led(1) # Quick flash confirmation
+        flash_led(5) # Flash 5 times as requested
         
         # 1. Log and Show Stats
         self.tracker.update()

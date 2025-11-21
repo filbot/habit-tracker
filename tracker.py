@@ -101,6 +101,98 @@ def get_weekly_streak(history):
         
     return streak
 
+def draw_stats(epd):
+    logger.info("Drawing Update State")
+    width = epd.height
+    height = epd.width
+    
+    # White background (255)
+    image_black = Image.new('1', (width, height), 255) 
+    image_red = Image.new('1', (width, height), 255)
+    
+    draw_black = ImageDraw.Draw(image_black)
+    draw_red = ImageDraw.Draw(image_red)
+    
+    # Calculate Metrics from Database
+    history = database.get_all_logs()
+    offset = database.get_offset()
+    
+    vol = get_weekly_volume(history)
+    streak = get_weekly_streak(history)
+    total = len(history) + offset
+    
+    # Layout Constants
+    top_height = height // 2
+    padding = 3
+    box_y_start = top_height + padding
+    box_y_end = height - padding
+    box_height = box_y_end - box_y_start
+    
+    # Calculate box width (3 boxes, 4 gaps of padding)
+    total_gap = 4 * padding
+    available_width = width - total_gap
+    box_width = available_width // 3
+    
+    # --- Top Half: Message (White) ---
+    messages = [
+        "Keep it up!",
+        "Great job!",
+        "You got this!",
+        "Don't stop!",
+        "Crushing it!",
+        "Let's go!",
+        "Nice work!",
+        "Way to go!"
+    ]
+    msg = random.choice(messages)
+    font_msg = get_font(28)
+    
+    # Center message in top half manually
+    bbox = font_msg.getbbox(msg)
+    msg_w = bbox[2] - bbox[0]
+    msg_h = bbox[3] - bbox[1]
+    msg_x = (width - msg_w) // 2
+    msg_y = (top_height - msg_h) // 2
+    
+    draw_black.text((msg_x, msg_y), msg, font=font_msg, fill=0)
+    
+    # --- Bottom Half: Stats Boxes (White on Black) ---
+    stats_data = [
+        ("This Week", str(vol)),
+        ("Streak", str(streak)),
+        ("Total", str(total))
+    ]
+    
+    font_label = get_font(12)
+    font_value = get_font(24)
+    
+    for i, (label, value) in enumerate(stats_data):
+        # Calculate box coordinates
+        x_start = padding + (i * (box_width + padding))
+        x_end = x_start + box_width
+        
+        # Draw Box Outline (White=0)
+        draw_black.rectangle([x_start, box_y_start, x_end, box_y_end], outline=0, width=1)
+        
+        # Center of box
+        box_center_x = x_start + (box_width // 2)
+        
+        # Draw Label (Top of box)
+        bbox_l = font_label.getbbox(label)
+        l_w = bbox_l[2] - bbox_l[0]
+        l_x = box_center_x - (l_w // 2)
+        label_y = box_y_start + 5
+        draw_black.text((l_x, label_y), label, font=font_label, fill=0)
+        
+        # Draw Value (Center/Bottom of box)
+        bbox_v = font_value.getbbox(value)
+        v_w = bbox_v[2] - bbox_v[0]
+        v_x = box_center_x - (v_w // 2)
+        value_y = box_y_start + 25
+        draw_black.text((v_x, value_y), value, font=font_value, fill=0)
+    
+    epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
+
 def draw_wyao(epd):
     logger.info("Drawing Init State (WYAO)")
     width = epd.height
@@ -228,8 +320,8 @@ def main():
             tracker.reset()
             tracker.sleep()
         
-    except IOError as e:
-        logger.info(e)
+    except Exception as e:
+        logger.error(f"Unhandled Exception: {e}", exc_info=True)
     except KeyboardInterrupt:    
         logger.info("ctrl + c:")
         epd2in13b_V4.epdconfig.module_exit()
