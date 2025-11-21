@@ -242,6 +242,7 @@ class HabitTracker:
         # self.epd.clear() # Optimization: display() overwrites everything
         
     def update(self):
+        self.epd.init() # Ensure awake and SPI open
         # Update stats
         stats = load_stats()
         stats['history'].append(datetime.now().isoformat())
@@ -251,6 +252,7 @@ class HabitTracker:
         draw_stats(self.epd, stats)
         
     def reset(self):
+        self.epd.init() # Ensure awake and SPI open
         # Revert to WYAO
         draw_wyao(self.epd)
         
