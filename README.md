@@ -87,7 +87,7 @@ To enable the HTTP API for companion apps:
 1.  **Install System Dependencies**:
     ```bash
     sudo apt update
-    sudo apt install -y swig python3-dev python3-setuptools
+    sudo apt install -y swig python3-dev python3-setuptools liblgpio-dev
     ```
 
 2.  **Set up Virtual Environment**:
