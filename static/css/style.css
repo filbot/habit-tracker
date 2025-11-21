@@ -114,10 +114,9 @@ h1 {
 }
 
 .heatmap-year {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
     gap: 20px;
-    flex-wrap: wrap;
-    /* Allow wrapping if screen is small */
 }
 
 .month-block {
