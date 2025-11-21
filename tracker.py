@@ -9,7 +9,6 @@ import argparse
 import random
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
-import traceback
 
 # Add current directory to path
 libdir = os.path.dirname(os.path.realpath(__file__))
