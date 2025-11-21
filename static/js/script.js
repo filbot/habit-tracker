@@ -68,12 +68,9 @@ function renderHeatmap(dailyCounts) {
         const cell = document.createElement('div');
         cell.className = 'day-cell';
 
-        // Determine Level
+        // Determine Level (Binary)
         let level = 0;
         if (count > 0) level = 1;
-        if (count > 2) level = 2;
-        if (count > 4) level = 3;
-        if (count > 6) level = 4;
 
         cell.setAttribute('data-level', level);
         cell.title = `${dateStr}: ${count} logs`;

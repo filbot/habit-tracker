@@ -15,12 +15,10 @@
     --level-4: #39d353;
     /* Bright Green */
 
-    /* Or Purple Theme like screenshot? Let's do Purple */
+    /* Heatmap Colors (Binary Theme) */
     --level-0: #2d333b;
-    --level-1: #4c426e;
-    --level-2: #6e5c9e;
-    --level-3: #9077cf;
-    --level-4: #b392f0;
+    --level-1: #9077cf;
+    /* Active Purple */
 }
 
 * {
