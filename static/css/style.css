@@ -1,0 +1,190 @@
+:root {
+    --bg-color: #05070a;
+    --grid-color: rgba(255, 255, 255, 0.05);
+    --primary-color: #ffffff;
+    --accent-color: #ff3333;
+    --text-color: #a0a0a0;
+    --hud-bg: rgba(10, 15, 20, 0.8);
+    --hud-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--primary-color);
+    font-family: 'Rajdhani', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* CRT Effects */
+.scanline {
+    width: 100%;
+    height: 100px;
+    z-index: 10;
+    background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(0,0,0,0) 100%);
+    opacity: 0.1;
+    position: absolute;
+    bottom: 100%;
+    animation: scanline 10s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes scanline {
+    0% { bottom: 100%; }
+    100% { bottom: -100px; }
+}
+
+.vignette {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle, rgba(0,0,0,0) 60%, rgba(0,0,0,0.8) 100%);
+    pointer-events: none;
+    z-index: 9;
+}
+
+/* Canvas */
+#orbitCanvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+/* HUD Layout */
+.hud-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    padding: 20px;
+    pointer-events: none; /* Let clicks pass through to canvas if needed */
+}
+
+.hud-panel {
+    position: absolute;
+    background: var(--hud-bg);
+    border: 1px solid var(--hud-border);
+    padding: 15px;
+    border-radius: 5px;
+    backdrop-filter: blur(5px);
+    pointer-events: auto;
+}
+
+.panel-header {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    color: var(--text-color);
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid var(--hud-border);
+    padding-bottom: 5px;
+}
+
+/* Top Left */
+.top-left {
+    top: 40px;
+    left: 40px;
+    width: 200px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+}
+
+.label { color: var(--text-color); }
+.status-ok { color: #33ff33; text-shadow: 0 0 5px #33ff33; }
+
+/* Right Panel */
+.right-panel {
+    top: 50%;
+    right: 40px;
+    transform: translateY(-50%);
+    width: 250px;
+}
+
+.chart-container {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.chart-label {
+    font-size: 12px;
+    color: var(--text-color);
+    margin-bottom: 10px;
+    letter-spacing: 1px;
+}
+
+/* Circular Charts */
+.circular-chart {
+    display: block;
+    margin: 0 auto;
+    max-width: 80%;
+    max-height: 250px;
+}
+
+.circle-bg {
+    fill: none;
+    stroke: #1a202c;
+    stroke-width: 2.5;
+}
+
+.circle {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    transition: stroke-dasharray 1s ease-out;
+}
+
+#volume-chart .circle { stroke: var(--primary-color); }
+#streak-chart .circle { stroke: var(--accent-color); }
+
+.percentage {
+    fill: var(--primary-color);
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: bold;
+    font-size: 8px;
+    text-anchor: middle;
+}
+
+/* Bottom Left */
+.bottom-left {
+    bottom: 40px;
+    left: 40px;
+}
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #333;
+    border: 1px solid var(--primary-color);
+}
+
+.user-info {
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.user-name { font-size: 14px; color: var(--primary-color); }
+.user-role { font-size: 10px; color: var(--text-color); }
