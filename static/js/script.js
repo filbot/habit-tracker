@@ -28,10 +28,7 @@ function renderDashboard(logs, stats) {
     });
 
     // 3. Update Cards
-    const today = new Date().toISOString().split('T')[0];
-    const todayCount = dailyCounts[today] || 0;
-
-    document.getElementById('today-count').innerText = todayCount;
+    document.getElementById('week-count').innerText = stats.volume || 0;
     document.getElementById('streak-count').innerText = stats.streak || 0;
     document.getElementById('total-count').innerText = stats.total || 0;
 
