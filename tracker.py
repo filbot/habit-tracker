@@ -6,6 +6,7 @@ import time
 import logging
 import json
 import argparse
+import random
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 import traceback
@@ -185,17 +186,27 @@ def draw_stats(epd, stats):
     available_width = width - total_gap
     box_width = available_width // 3
     
-    # --- Top Half: Message (Red) ---
-    msg = "Keep it up!"
+    # --- Top Half: Message (White) ---
+    messages = [
+        "Keep it up!",
+        "Great job!",
+        "You got this!",
+        "Don't stop!",
+        "Crushing it!",
+        "Let's go!",
+        "Nice work!",
+        "Way to go!"
+    ]
+    msg = random.choice(messages)
     font_msg = get_font(28)
     
     # Center message in top half
     # anchor="mm" centers text at xy
-    draw_red.text((width // 2, top_height // 2), msg, font=font_msg, fill=0, anchor="mm")
+    draw_black.text((width // 2, top_height // 2), msg, font=font_msg, fill=1, anchor="mm")
     
     # --- Bottom Half: Stats Boxes (White on Black) ---
     stats_data = [
-        ("Week", str(vol)),
+        ("This Week", str(vol)),
         ("Streak", str(streak)),
         ("Total", str(total))
     ]
