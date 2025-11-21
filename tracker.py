@@ -106,45 +106,43 @@ def draw_wyao(epd):
     width = epd.height
     height = epd.width
     
-    # Black background (0)
-    image_black = Image.new('1', (width, height), 0) 
+    # White background (255)
+    image_black = Image.new('1', (width, height), 255) 
     image_red = Image.new('1', (width, height), 255) # Transparent
     
     draw_black = ImageDraw.Draw(image_black)
     draw_red = ImageDraw.Draw(image_red)
     
-    font = get_font(100) # Large font
-    
     text = "WYAO"
-    # Calculate positions to center the text
-    # We'll draw W, Y, O on black layer (White text), and A on red layer (Red text)
+    padding = 5
+    available_width = width - (2 * padding)
+    available_height = height - (2 * padding)
     
-    # Get total width to center
+    # 1. Find the right font size
+    font = fit_text(draw_black, text, available_width, available_height)
+    
+    # 2. Calculate total width to center
     total_width = 0
     char_widths = []
     for char in text:
-        bbox = font.getbbox(char)
-        w = bbox[2] - bbox[0]
-        char_widths.append(w)
-        total_width += w
+        l = draw_black.textlength(char, font=font)
+        char_widths.append(l)
+        total_width += l
         
-    # Add some spacing
-    spacing = 5
-    total_width += spacing * (len(text) - 1)
-    
     start_x = (width - total_width) // 2
-    y = (height - 100) // 2 # Approx vertical center
+    y = height // 2
     
+    # 3. Draw characters
     current_x = start_x
     for i, char in enumerate(text):
         if char == 'A':
             # Red 'A' on Red Layer (0 = Red)
-            draw_red.text((current_x, y), char, font=font, fill=0)
+            draw_red.text((current_x, y), char, font=font, fill=0, anchor="lm")
         else:
-            # White 'W', 'Y', 'O' on Black Layer (1 = White)
-            draw_black.text((current_x, y), char, font=font, fill=1)
+            # Black 'W', 'Y', 'O' on Black Layer (0 = Black)
+            draw_black.text((current_x, y), char, font=font, fill=0, anchor="lm")
         
-        current_x += char_widths[i] + spacing
+        current_x += char_widths[i]
         
     epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
 
