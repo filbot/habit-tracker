@@ -84,13 +84,19 @@ To have the habit tracker run automatically when the Raspberry Pi starts:
 
 To enable the HTTP API for companion apps:
 
-1.  **Set up Virtual Environment**:
+1.  **Install System Dependencies**:
     ```bash
-    python3 -m venv venv
-    source venv/bin/activate
+    sudo apt update
+    sudo apt install -y swig python3-dev python3-setuptools
     ```
 
-2.  **Install Dependencies**:
+2.  **Set up Virtual Environment**:
+    ```bash
+    python3 -m venv .venv
+    source .venv/bin/activate
+    ```
+
+3.  **Install Dependencies**:
     ```bash
     pip3 install -r requirements.txt
     ```

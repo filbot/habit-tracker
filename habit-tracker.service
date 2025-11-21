@@ -6,7 +6,7 @@ After=multi-user.target
 Type=simple
 User=filip
 WorkingDirectory=/home/filip/habit-tracker
-ExecStart=/home/filip/habit-tracker/.venv/bin/python3 button_listener.py/filip/habit-tracker/button_listener.py
+ExecStart=/home/filip/habit-tracker/.venv/bin/python3 button_listener.py
 Restart=always
 RestartSec=5
 Environment=PYTHONUNBUFFERED=1
