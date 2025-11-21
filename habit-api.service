@@ -6,7 +6,7 @@ After=network.target
 Type=simple
 User=filip
 WorkingDirectory=/home/filip/habit-tracker
-ExecStart=/home/filip/habit-tracker/venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000
+ExecStart=/home/filip/habit-tracker/.venv/bin/uvicorn api:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5
 
