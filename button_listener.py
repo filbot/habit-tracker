@@ -5,6 +5,7 @@ import os
 import sys
 import logging
 import threading
+import datetime
 from threading import Timer
 
 # Add current directory to path to import tracker
@@ -12,22 +13,16 @@ sys.path.append(os.path.dirname(os.path.realpath(__file__)))
 from tracker import HabitTracker
 
 # Configuration
-# Using BCM numbering (GPIO XX)
-BUTTON_PIN = 5  # Physical Pin 29
-LED_PIN = 6     # Physical Pin 31
-
-# Logging setup
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-class App:
-# GPIO Setup
 BUTTON_PIN = 5  # BCM
 LED_PIN = 6     # BCM
 
 # Constants
 LONG_PRESS_DURATION = 3.0  # Seconds
 STATS_DURATION = 15.0      # Seconds
+
+# Logging setup
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def flash_led(times=3, interval=0.1):
     """Flashes the LED in a separate thread."""
@@ -51,6 +46,7 @@ class HabitController:
     def __init__(self):
         self.tracker = HabitTracker()
         self.timer = None
+        self.reset_timer = None
         
         # Setup GPIO
         GPIO.setmode(GPIO.BCM)
@@ -67,13 +63,13 @@ class HabitController:
     def schedule_reset(self):
         """Schedules the daily reset at 3am."""
         seconds = get_seconds_until_3am()
-        print(f"Scheduling reset in {seconds} seconds")
+        logger.info(f"Scheduling reset in {seconds} seconds")
         self.reset_timer = threading.Timer(seconds, self.daily_reset)
         self.reset_timer.start()
 
     def daily_reset(self):
         """Resets the display to WYAO and reschedules."""
-        print("Executing Daily Reset...")
+        logger.info("Executing Daily Reset...")
         self.tracker.initialize()
         self.schedule_reset()
 
@@ -84,7 +80,7 @@ class HabitController:
 
     def handle_short_press(self):
         """Log habit, show stats, then show done screen."""
-        print("Short Press: Logging Habit")
+        logger.info("Short Press: Logging Habit")
         flash_led(1) # Quick flash confirmation
         
         # 1. Log and Show Stats
@@ -98,7 +94,7 @@ class HabitController:
 
     def handle_long_press(self):
         """Manual Reset."""
-        print("Long Press: Manual Reset")
+        logger.info("Long Press: Manual Reset")
         flash_led(5, 0.05) # Rapid flash
         
         if self.timer:
@@ -107,26 +103,43 @@ class HabitController:
         self.tracker.initialize()
 
     def run(self):
-        print("Button Listener Started (Polling Mode)...")
+        logger.info("Button Listener Started (Polling Mode)...")
         try:
             while True:
-                    with self.lock:
-                        self.tracker.update()
+                input_state = GPIO.input(BUTTON_PIN)
+                
+                if input_state == False: # Button Pressed (Active Low)
+                    start_time = time.time()
                     
-                    # 4. Start new Reset Timer (15s)
-                    self.reset_timer = Timer(15.0, self.on_reset)
-                    self.reset_timer.start()
+                    # Wait for release or long press threshold
+                    while GPIO.input(BUTTON_PIN) == False:
+                        time.sleep(0.1)
+                        duration = time.time() - start_time
+                        if duration >= LONG_PRESS_DURATION:
+                            # Long press detected immediately
+                            break
                     
-                    # Simple debounce delay
-                    time.sleep(0.5)
+                    duration = time.time() - start_time
                     
+                    if duration >= LONG_PRESS_DURATION:
+                        self.handle_long_press()
+                        # Wait for button release to avoid double trigger
+                        while GPIO.input(BUTTON_PIN) == False:
+                            time.sleep(0.1)
+                    else:
+                        self.handle_short_press()
+                        
+                time.sleep(0.1) # Polling rate
+                
         except KeyboardInterrupt:
             logger.info("Exiting...")
+        finally:
+            if self.timer:
+                self.timer.cancel()
             if self.reset_timer:
                 self.reset_timer.cancel()
-        finally:
             GPIO.cleanup()
 
 if __name__ == "__main__":
-    app = App()
-    app.run()
+    controller = HabitController()
+    controller.run()

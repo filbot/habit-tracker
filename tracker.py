@@ -106,106 +106,72 @@ def draw_wyao(epd):
     width = epd.height
     height = epd.width
     
-    # Black background (0), White text (1)
-    Himage_black = Image.new('1', (width, height), 0) 
-    Himage_red = Image.new('1', (width, height), 255) # Transparent
+    # Black background (0)
+    image_black = Image.new('1', (width, height), 0) 
+    image_red = Image.new('1', (width, height), 255) # Transparent
     
-    draw_black = ImageDraw.Draw(Himage_black)
+    draw_black = ImageDraw.Draw(image_black)
+    draw_red = ImageDraw.Draw(image_red)
+    
+    font = get_font(100) # Large font
     
     text = "WYAO"
-    padding = 5
-    available_width = width - (2 * padding)
-    available_height = height - (2 * padding)
+    # Calculate positions to center the text
+    # We'll draw W, Y, O on black layer (White text), and A on red layer (Red text)
     
-    font = fit_text(draw_black, text, available_width, available_height)
+    # Get total width to center
+    total_width = 0
+    char_widths = []
+    for char in text:
+        bbox = font.getbbox(char)
+        w = bbox[2] - bbox[0]
+        char_widths.append(w)
+        total_width += w
+        
+    # Add some spacing
+    spacing = 5
+    total_width += spacing * (len(text) - 1)
     
-    # Center text using anchor
-    x = width // 2
-    y = height // 2
-    draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
+    start_x = (width - total_width) // 2
+    y = (height - 100) // 2 # Approx vertical center
     
-    epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
+    current_x = start_x
+    for i, char in enumerate(text):
+        if char == 'A':
+            # Red 'A' on Red Layer (0 = Red)
+            draw_red.text((current_x, y), char, font=font, fill=0)
+        else:
+            # White 'W', 'Y', 'O' on Black Layer (1 = White)
+            draw_black.text((current_x, y), char, font=font, fill=1)
+        
+        current_x += char_widths[i] + spacing
+        
+    epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
 
-def draw_stats(epd):
-    logger.info("Drawing Update State")
+def draw_done_screen(epd):
+    logger.info("Drawing Done Screen")
     width = epd.height
     height = epd.width
     
-    # White background (255)
-    Himage_black = Image.new('1', (width, height), 255) 
-    Himage_red = Image.new('1', (width, height), 255)
+    # Black Background (0)
+    image_black = Image.new('1', (width, height), 0)
+    image_red = Image.new('1', (width, height), 255)
     
-    draw_black = ImageDraw.Draw(Himage_black)
-    draw_red = ImageDraw.Draw(Himage_red)
+    draw_black = ImageDraw.Draw(image_black)
     
-    # Calculate Metrics from Database
-    history = database.get_all_logs()
-    offset = database.get_offset()
+    font = get_font(40)
+    text = "You did it"
     
-    vol = get_weekly_volume(history)
-    streak = get_weekly_streak(history)
-    total = len(history) + offset
+    # Draw White text (1) on Black background
+    bbox = font.getbbox(text)
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
+    x = (width - w) // 2
+    y = (height - h) // 2
     
-    # Layout Constants
-    top_height = height // 2
-    padding = 3
-    box_y_start = top_height + padding
-    box_y_end = height - padding
-    box_height = box_y_end - box_y_start
+    draw_black.text((x, y), text, font=font, fill=1)
     
-    # Calculate box width (3 boxes, 4 gaps of padding)
-    total_gap = 4 * padding
-    available_width = width - total_gap
-    box_width = available_width // 3
-    
-    # --- Top Half: Message (White) ---
-    messages = [
-        "Keep it up!",
-        "Great job!",
-        "You got this!",
-        "Don't stop!",
-        "Crushing it!",
-        "Let's go!",
-        "Nice work!",
-        "Way to go!"
-    ]
-    msg = random.choice(messages)
-    font_msg = get_font(28)
-    
-    # Center message in top half
-    # anchor="mm" centers text at xy
-    draw_black.text((width // 2, top_height // 2), msg, font=font_msg, fill=0, anchor="mm")
-    
-    # --- Bottom Half: Stats Boxes (White on Black) ---
-    stats_data = [
-        ("This Week", str(vol)),
-        ("Streak", str(streak)),
-        ("Total", str(total))
-    ]
-    
-    font_label = get_font(12)
-    font_value = get_font(24)
-    
-    for i, (label, value) in enumerate(stats_data):
-        # Calculate box coordinates
-        x_start = padding + (i * (box_width + padding))
-        x_end = x_start + box_width
-        
-        # Draw Box Outline (White=0)
-        draw_black.rectangle([x_start, box_y_start, x_end, box_y_end], outline=0, width=1)
-        
-        # Center of box
-        box_center_x = x_start + (box_width // 2)
-        
-        # Draw Label (Top of box)
-        label_y = box_y_start + 10
-        draw_black.text((box_center_x, label_y), label, font=font_label, fill=0, anchor="mm")
-        
-        # Draw Value (Center/Bottom of box)
-        value_y = box_y_start + 35
-        draw_black.text((box_center_x, value_y), value, font=font_value, fill=0, anchor="mm")
-    
-    epd.display(epd.getbuffer(Himage_black), epd.getbuffer(Himage_red))
+    epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
 
 class HabitTracker:
     def __init__(self):
@@ -215,6 +181,11 @@ class HabitTracker:
         # Ensure DB is initialized
         database.init_db()
         
+    def initialize(self):
+        self.epd.init()
+        draw_wyao(self.epd)
+        self.sleep()
+
     def update(self):
         self.epd.init() # Ensure awake and SPI open
         # Update stats in DB
@@ -223,10 +194,16 @@ class HabitTracker:
         # Show stats
         draw_stats(self.epd)
         
+    def draw_done_screen(self):
+        self.epd.init()
+        draw_done_screen(self.epd)
+        self.sleep()
+        
     def reset(self):
         self.epd.init() # Ensure awake and SPI open
         # Revert to WYAO
         draw_wyao(self.epd)
+        self.sleep()
         
     def sleep(self):
         logger.info("Goto Sleep...")
