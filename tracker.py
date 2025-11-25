@@ -123,7 +123,7 @@ def draw_stats(epd):
     
     # Layout Constants
     top_height = height // 2
-    padding = 3
+    padding = 10
     box_y_start = top_height + padding
     box_y_end = height - padding
     box_height = box_y_end - box_y_start
@@ -206,7 +206,7 @@ def draw_wyao(epd):
     draw_red = ImageDraw.Draw(image_red)
     
     text = "WYAO"
-    padding = 5
+    padding = 10
     available_width = width - (2 * padding)
     available_height = height - (2 * padding)
     
