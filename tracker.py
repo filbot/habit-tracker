@@ -122,11 +122,24 @@ def draw_stats(epd):
     total = len(history) + offset
     
     # Layout Constants
-    top_height = height // 2
     padding = 10
-    box_y_start = top_height + padding
+    
+    # Fonts
+    font_label = get_font(12)
+    font_value = get_font(24)
+    
+    # Calculate Box Height needed
+    # Label (12) + Gap (5) + Value (24) + Inner Padding (5 top + 5 bottom)
+    label_h = 14 # slightly more than font size to be safe
+    value_h = 28
+    inner_gap = 5
+    inner_padding = 5
+    
+    box_height = inner_padding + label_h + inner_gap + value_h + inner_padding
+    
+    # Bottom area
     box_y_end = height - padding
-    box_height = box_y_end - box_y_start
+    box_y_start = box_y_end - box_height
     
     # Calculate box width (3 boxes, 4 gaps of padding)
     total_gap = 4 * padding
@@ -134,6 +147,11 @@ def draw_stats(epd):
     box_width = available_width // 3
     
     # --- Top Half: Message (White) ---
+    # Available height for message
+    # From 0 to box_y_start - padding
+    msg_area_height = box_y_start - padding
+    msg_area_center_y = msg_area_height // 2
+    
     messages = [
         "Keep it up!",
         "Great job!",
@@ -147,12 +165,12 @@ def draw_stats(epd):
     msg = random.choice(messages)
     font_msg = get_font(28)
     
-    # Center message in top half manually
+    # Center message
     bbox = font_msg.getbbox(msg)
     msg_w = bbox[2] - bbox[0]
     msg_h = bbox[3] - bbox[1]
     msg_x = (width - msg_w) // 2
-    msg_y = (top_height - msg_h) // 2
+    msg_y = msg_area_center_y - (msg_h // 2)
     
     draw_black.text((msg_x, msg_y), msg, font=font_msg, fill=0)
     
@@ -162,9 +180,6 @@ def draw_stats(epd):
         ("Streak", str(streak)),
         ("Total", str(total))
     ]
-    
-    font_label = get_font(12)
-    font_value = get_font(24)
     
     for i, (label, value) in enumerate(stats_data):
         # Calculate box coordinates
@@ -181,14 +196,15 @@ def draw_stats(epd):
         bbox_l = font_label.getbbox(label)
         l_w = bbox_l[2] - bbox_l[0]
         l_x = box_center_x - (l_w // 2)
-        label_y = box_y_start + 5
+        label_y = box_y_start + inner_padding
         draw_black.text((l_x, label_y), label, font=font_label, fill=0)
         
-        # Draw Value (Center/Bottom of box)
+        # Draw Value (Bottom of box)
         bbox_v = font_value.getbbox(value)
         v_w = bbox_v[2] - bbox_v[0]
         v_x = box_center_x - (v_w // 2)
-        value_y = box_y_start + 25
+        # Position value below label + gap
+        value_y = label_y + label_h + inner_gap
         draw_black.text((v_x, value_y), value, font=font_value, fill=0)
     
     epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
@@ -250,7 +266,7 @@ def draw_done_screen(epd):
     draw_black = ImageDraw.Draw(image_black)
     
     font = get_font(40)
-    text = "YOU DID IT"
+    text = "DONE"
     
     # Draw White text (1) on Black background
     # Center text using anchor="mm" (Middle-Middle)
