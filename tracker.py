@@ -27,11 +27,14 @@ FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 def get_font(size):
     try:
-        # Try to use a common path on Pi, or common system paths
+        # Common Raspbian monospaced font paths
         paths = [
             FONT_PATH,
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeMono.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
         ]
         for path in paths:
             if os.path.exists(path):
@@ -50,7 +53,7 @@ def fit_text(draw, text, max_width, max_height):
     if not hasattr(font, 'getbbox'): # load_default() fonts are limited
          return font
 
-    while size < 100: # Added safety limit
+    while size < 200: # Increased safety limit for larger text
         bbox = draw.textbbox((0, 0), text, font=font)
         width = bbox[2] - bbox[0]
         height = bbox[3] - bbox[1]
@@ -243,7 +246,7 @@ def draw_wyao(epd):
     draw_black = ImageDraw.Draw(image_black)
     
     text = "WYAO"
-    padding = 10
+    padding = 5
     available_width = width - (2 * padding)
     available_height = height - (2 * padding)
     
