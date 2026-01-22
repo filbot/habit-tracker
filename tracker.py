@@ -17,7 +17,7 @@ libdir = os.path.dirname(os.path.realpath(__file__))
 if os.path.exists(libdir):
     sys.path.append(libdir)
 
-import epd2in13b_V4
+import epd2in13_V4
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,10 +108,8 @@ def draw_stats(epd):
     
     # White background (255)
     image_black = Image.new('1', (width, height), 255) 
-    image_red = Image.new('1', (width, height), 255)
     
     draw_black = ImageDraw.Draw(image_black)
-    draw_red = ImageDraw.Draw(image_red)
     
     # Calculate Metrics from Database
     history = database.get_all_logs()
@@ -207,7 +205,7 @@ def draw_stats(epd):
         value_y = label_y + label_h + inner_gap
         draw_black.text((v_x, value_y), value, font=font_value, fill=0)
     
-    epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
+    epd.display(epd.getbuffer(image_black))
 
 def draw_wyao(epd):
     logger.info("Drawing Init State (WYAO)")
@@ -216,10 +214,8 @@ def draw_wyao(epd):
     
     # White background (255)
     image_black = Image.new('1', (width, height), 255) 
-    image_red = Image.new('1', (width, height), 255) # Transparent
     
     draw_black = ImageDraw.Draw(image_black)
-    draw_red = ImageDraw.Draw(image_red)
     
     text = "WYAO"
     padding = 10
@@ -243,16 +239,12 @@ def draw_wyao(epd):
     # 3. Draw characters
     current_x = start_x
     for i, char in enumerate(text):
-        if char == 'A':
-            # Red 'A' on Red Layer (0 = Red)
-            draw_red.text((current_x, y), char, font=font, fill=0, anchor="lm")
-        else:
-            # Black 'W', 'Y', 'O' on Black Layer (0 = Black)
-            draw_black.text((current_x, y), char, font=font, fill=0, anchor="lm")
+        # All Black now
+        draw_black.text((current_x, y), char, font=font, fill=0, anchor="lm")
         
         current_x += char_widths[i]
         
-    epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
+    epd.display(epd.getbuffer(image_black))
 
 def draw_done_screen(epd):
     logger.info("Drawing Done Screen")
@@ -261,7 +253,6 @@ def draw_done_screen(epd):
     
     # Black Background (0)
     image_black = Image.new('1', (width, height), 0)
-    image_red = Image.new('1', (width, height), 255)
     
     draw_black = ImageDraw.Draw(image_black)
     
@@ -279,11 +270,11 @@ def draw_done_screen(epd):
     # But let's try pure 'mm' first as it's standard.
     draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
     
-    epd.display(epd.getbuffer(image_black), epd.getbuffer(image_red))
+    epd.display(epd.getbuffer(image_black))
 
 class HabitTracker:
     def __init__(self):
-        self.epd = epd2in13b_V4.EPD()
+        self.epd = epd2in13_V4.EPD()
         logger.info("Init")
         self.epd.init()
         # Ensure DB is initialized
@@ -342,7 +333,7 @@ def main():
         logger.error(f"Unhandled Exception: {e}", exc_info=True)
     except KeyboardInterrupt:    
         logger.info("ctrl + c:")
-        epd2in13b_V4.epdconfig.module_exit()
+        epd2in13_V4.epdconfig.module_exit()
         exit()
 
 if __name__ == "__main__":
