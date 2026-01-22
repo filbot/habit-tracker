@@ -52,7 +52,6 @@ class RaspberryPi:
         self.SPI = None
         self.GPIO_RST_PIN = None
         self.GPIO_DC_PIN = None
-        self.GPIO_PWR_PIN = None
         self.GPIO_BUSY_PIN = None
 
     def digital_write(self, pin, value):
@@ -68,12 +67,6 @@ class RaspberryPi:
                     self.GPIO_DC_PIN.on()
                 else:
                     self.GPIO_DC_PIN.off()
-        elif pin == self.PWR_PIN:
-            if self.GPIO_PWR_PIN:
-                if value:
-                    self.GPIO_PWR_PIN.on()
-                else:
-                    self.GPIO_PWR_PIN.off()
 
     def digital_read(self, pin):
         if pin == self.BUSY_PIN and self.GPIO_BUSY_PIN:
@@ -108,15 +101,15 @@ class RaspberryPi:
             self.SPI.mode = 0b00
             
         if self.GPIO_RST_PIN is None:
-            self.GPIO_RST_PIN = gpiozero.LED(self.RST_PIN)
+            logger.debug(f"Init RST Pin {self.RST_PIN}")
+            self.GPIO_RST_PIN = gpiozero.DigitalOutputDevice(self.RST_PIN)
         if self.GPIO_DC_PIN is None:
-            self.GPIO_DC_PIN = gpiozero.LED(self.DC_PIN)
-        if self.GPIO_PWR_PIN is None:
-            self.GPIO_PWR_PIN = gpiozero.LED(self.PWR_PIN)
+            logger.debug(f"Init DC Pin {self.DC_PIN}")
+            self.GPIO_DC_PIN = gpiozero.DigitalOutputDevice(self.DC_PIN)
         if self.GPIO_BUSY_PIN is None:
-            self.GPIO_BUSY_PIN = gpiozero.Button(self.BUSY_PIN, pull_up=False)
+            logger.debug(f"Init BUSY Pin {self.BUSY_PIN}")
+            self.GPIO_BUSY_PIN = gpiozero.DigitalInputDevice(self.BUSY_PIN, pull_up=False)
 
-        self.GPIO_PWR_PIN.on()
         return 0
 
     def module_exit(self, cleanup=False):
@@ -129,16 +122,6 @@ class RaspberryPi:
         if self.GPIO_PWR_PIN:
             self.GPIO_PWR_PIN.off()
 
-        # Always close GPIOs to release pins
-        if self.GPIO_RST_PIN:
-            self.GPIO_RST_PIN.close()
-            self.GPIO_RST_PIN = None
-        if self.GPIO_DC_PIN:
-            self.GPIO_DC_PIN.close()
-            self.GPIO_DC_PIN = None
-        if self.GPIO_PWR_PIN:
-            self.GPIO_PWR_PIN.close()
-            self.GPIO_PWR_PIN = None
         if self.GPIO_BUSY_PIN:
             self.GPIO_BUSY_PIN.close()
             self.GPIO_BUSY_PIN = None

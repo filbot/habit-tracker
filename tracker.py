@@ -20,7 +20,7 @@ if os.path.exists(libdir):
 
 from waveshare_epd import epd2in13_V4
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
@@ -277,7 +277,7 @@ def draw_done_screen(epd):
 class HabitTracker:
     def __init__(self):
         self.epd = epd2in13_V4.EPD()
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         logger.info("HabitTracker Initialized")
         # Ensure DB is initialized
         database.init_db()
@@ -341,7 +341,7 @@ def main():
         logger.error(f"Unhandled Exception: {e}", exc_info=True)
     except KeyboardInterrupt:    
         logger.info("ctrl + c:")
-        epd2in13_V4.epdconfig.module_exit()
+        tracker.cleanup()
         exit()
 
 if __name__ == "__main__":

@@ -93,8 +93,13 @@ class EPD:
     '''
     def ReadBusy(self):
         logger.debug("e-Paper busy")
+        timeout = 1000 # 10 seconds (1000 * 10ms)
         while(epdconfig.digital_read(self.busy_pin) == 1):      # 0: idle, 1: busy
             epdconfig.delay_ms(10)  
+            timeout -= 1
+            if timeout <= 0:
+                logger.warning("e-Paper Busy Timeout! (10s)")
+                break
         logger.debug("e-Paper busy release")
 
     '''
