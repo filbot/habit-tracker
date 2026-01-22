@@ -37,13 +37,17 @@ class HabitController:
         self.reset_timer = None
         
         # Setup GPIO
-        # Button default pull_up is True
-        self.button = Button(BUTTON_PIN)
+        # Waveshare hats usually pull the button to GND, so we need pull_up=True (default)
+        # but let's be explicit and add a bounce time for reliability.
+        logger.info(f"Setting up Button on Pin {BUTTON_PIN} and LED on Pin {LED_PIN}")
+        self.button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.05)
         self.led = LED(LED_PIN)
         
         self.led.on() # LED ON for WYAO
         
+        # Using both when_pressed and when_released for debugging visibility
         self.button.when_pressed = self.handle_press
+        self.button.when_released = lambda: logger.debug("Button Released")
         
         # Start 3AM Scheduler
         self.schedule_reset()
@@ -120,8 +124,12 @@ class HabitController:
 
 if __name__ == "__main__":
     controller = HabitController()
-    logger.info("Button Listener Started...")
+    logger.info("Button Listener Started. Monitoring for presses...")
     try:
-        pause()
+        # Simple loop with periodic heartbeat to verify service is alive
+        while True:
+            threading.Event().wait(600) # Heartbeat every 10 mins
+            logger.info("Heartbeat: Button Listener is still alive")
     except (KeyboardInterrupt, SystemExit):
         logger.info("Exiting...")
+        controller.cleanup()
