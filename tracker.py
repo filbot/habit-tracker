@@ -25,50 +25,59 @@ logger = logging.getLogger(__name__)
 
 FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
+def get_font_file():
+    """Finds a valid TrueType font file on the system."""
+    paths = [
+        # Standard DejaVu paths (very common on Pi/Raspbian)
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+        # Liberation paths
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
+        # FreeFont paths
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf",
+        # Custom user path
+        FONT_PATH
+    ]
+    for path in paths:
+        if os.path.exists(path):
+            return path
+    return None
+
 def get_font(size):
-    try:
-        # Common Raspbian monospaced font paths
-        paths = [
-            FONT_PATH,
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf",
-            "/usr/share/fonts/truetype/freefont/FreeMono.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
-        ]
-        for path in paths:
-            if os.path.exists(path):
-                return ImageFont.truetype(path, size)
-        
-        # Fallback to default if no TTF found
-        return ImageFont.load_default()
-    except Exception:
-        return ImageFont.load_default()
+    font_file = get_font_file()
+    if font_file:
+        try:
+            return ImageFont.truetype(font_file, size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
 
 def fit_text(draw, text, max_width, max_height):
-    size = 10
-    font = get_font(size)
-    
-    # If using fixed-size default font, exit immediately
-    if not hasattr(font, 'getbbox'): # load_default() fonts are limited
-         return font
+    font_file = get_font_file()
+    if not font_file:
+        logger.warning("No TTF font found, falling back to default tiny font.")
+        return ImageFont.load_default()
 
-    while size < 200: # Increased safety limit for larger text
-        bbox = draw.textbbox((0, 0), text, font=font)
-        width = bbox[2] - bbox[0]
-        height = bbox[3] - bbox[1]
-        if width >= max_width or height >= max_height:
-            return get_font(max(1, size - 1))
-        size += 1
-        font = get_font(size)
+    size = 10
+    best_font = ImageFont.truetype(font_file, size)
+    
+    # Binary-ish search or just aggressive increment for best fit
+    while size < 250: # max possible size for this screen
+        test_font = ImageFont.truetype(font_file, size)
+        bbox = draw.textbbox((0, 0), text, font=test_font)
+        w = bbox[2] - bbox[0]
+        h = bbox[3] - bbox[1]
         
-        # Check if font actually changed size (detect load_default fallback)
-        if hasattr(font, "font"): # truetype objects have .font
-             pass
-        else:
-             return font # Probably load_default
-             
-    return font
+        if w > max_width or h > max_height:
+            break
+            
+        best_font = test_font
+        size += 2 # Step by 2 for speed
+        
+    logger.debug(f"Selected font size: {size-2} for text '{text}'")
+    return best_font
 
 def get_weekly_volume(history):
     now = datetime.now()
@@ -253,24 +262,12 @@ def draw_wyao(epd):
     # 1. Find the right font size
     font = fit_text(draw_black, text, available_width, available_height)
     
-    # 2. Calculate total width to center
-    total_width = 0
-    char_widths = []
-    for char in text:
-        l = draw_black.textlength(char, font=font)
-        char_widths.append(l)
-        total_width += l
-        
-    start_x = (width - total_width) // 2
+    # 2. Draw centered using anchor "mm"
+    # This is much more reliable than summing character widths manually
+    x = width // 2
     y = height // 2
     
-    # 3. Draw characters
-    current_x = start_x
-    for i, char in enumerate(text):
-        # All Black now
-        draw_black.text((current_x, y), char, font=font, fill=0, anchor="lm")
-        
-        current_x += char_widths[i]
+    draw_black.text((x, y), text, font=font, fill=0, anchor="mm")
         
     epd.display(epd.getbuffer(image_black))
 
