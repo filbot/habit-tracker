@@ -18,14 +18,23 @@ print("Note: Activity could be Signal going LOW or HIGH.")
 print("Press Ctrl+C to exit.\n")
 
 # Setup pins with internal pull-ups
+initialized_pins = []
 for p in MONITOR_PINS:
     try:
         GPIO.setup(p, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        initialized_pins.append(p)
     except Exception as e:
-        print(f"Error setting up BCM Pin {p}: {e}")
+        print(f"Skipping BCM Pin {p}: {e}")
+
+if not initialized_pins:
+    print("\nCRITICAL: No pins could be initialized. Are you sure the service isn't still running?")
+    print("Run: sudo systemctl stop habit-tracker")
+    sys.exit(1)
+
+print(f"\nMonitoring {len(initialized_pins)} pins: {initialized_pins}")
 
 # Keep track of last state
-last_states = {p: GPIO.input(p) for p in MONITOR_PINS}
+last_states = {p: GPIO.input(p) for p in initialized_pins}
 
 def signal_handler(sig, frame):
     print("\nExiting and cleaning up...")
@@ -36,7 +45,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 try:
     while True:
-        for p in MONITOR_PINS:
+        for p in initialized_pins:
             current = GPIO.input(p)
             if current != last_states[p]:
                 state_str = "HIGH" if current else "LOW (GND)"
