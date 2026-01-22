@@ -19,8 +19,13 @@ LED_PIN = 6
 STATS_DURATION = 15.0
 
 # Logging setup
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# Set up a single unified logger configuration
+LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
+
+# Reduce tracker log level to avoid noise if needed, but keep it DEBUG for now
+# logging.getLogger('tracker').setLevel(logging.INFO)
 
 def get_seconds_until_3am():
     """Calculates seconds until the next 3:00 AM."""
@@ -37,17 +42,25 @@ class HabitController:
         self.reset_timer = None
         
         # Setup GPIO
-        # Waveshare hats usually pull the button to GND, so we need pull_up=True (default)
-        # but let's be explicit and add a bounce time for reliability.
-        logger.info(f"Setting up Button on Pin {BUTTON_PIN} and LED on Pin {LED_PIN}")
-        self.button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.05)
+        # Waveshare hats usually have 4 buttons: S1=5, S2=6, S3=13, S4=19
+        # They pull to GND when pressed (Active LOW).
+        self.pins = [5, 6, 13, 19]
+        self.buttons = []
+        
+        logger.info(f"Initializing buttons on BCM pins: {self.pins}")
+        for pin in self.pins:
+            try:
+                btn = Button(pin, pull_up=True, bounce_time=0.05)
+                # Assign the same handler but pass the pin number for identification
+                btn.when_pressed = lambda b=btn: self.handle_press(b.pin.number)
+                btn.when_released = lambda b=btn: logger.debug(f"Button {b.pin.number} Released")
+                self.buttons.append(btn)
+                logger.debug(f"Monitoring pin {pin} (Current State: {'HIGH' if btn.is_pressed else 'LOW'})")
+            except Exception as e:
+                logger.error(f"Failed to setup pin {pin}: {e}")
+
         self.led = LED(LED_PIN)
-        
         self.led.on() # LED ON for WYAO
-        
-        # Using both when_pressed and when_released for debugging visibility
-        self.button.when_pressed = self.handle_press
-        self.button.when_released = lambda: logger.debug("Button Released")
         
         # Start 3AM Scheduler
         self.schedule_reset()
@@ -68,7 +81,8 @@ class HabitController:
             self.reset_timer.cancel()
         
         # Close GPIO pins
-        self.button.close()
+        for btn in self.buttons:
+            btn.close()
         self.led.close()
         
         # Final display cleanup
@@ -107,9 +121,9 @@ class HabitController:
             
         threading.Thread(target=_flash).start()
 
-    def handle_press(self):
+    def handle_press(self, pin_num):
         """Log habit, show stats, then show done screen."""
-        logger.info("Button Pressed: Logging Habit")
+        logger.info(f"Button Pressed on Pin {pin_num}! Logging Habit...")
         self.flash_led()
         
         # 1. Log and Show Stats
