@@ -82,14 +82,32 @@ class RaspberryPi:
             self.SPI.open(0, 0)
             self.SPI.max_speed_hz = 4000000
             self.SPI.mode = 0b00
+            try:
+                self.SPI.no_cs = True
+            except:
+                pass
             
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
+        
+        # Core pins
         GPIO.setup(self.RST_PIN, GPIO.OUT)
         GPIO.setup(self.DC_PIN, GPIO.OUT)
-        GPIO.setup(self.CS_PIN, GPIO.OUT)
         GPIO.setup(self.PWR_PIN, GPIO.OUT)
         GPIO.setup(self.BUSY_PIN, GPIO.IN)
+
+        # CS_PIN requires special handling if claimed by SPI driver
+        try:
+            GPIO.setup(self.CS_PIN, GPIO.OUT)
+        except Exception as e:
+            logger.warning(f"Initial CS Pin setup failed: {e}. Attempting cleanup and retry...")
+            try:
+                # Try to force release it
+                GPIO.cleanup(self.CS_PIN)
+                GPIO.setup(self.CS_PIN, GPIO.OUT)
+                logger.info("CS Pin successfully re-allocated.")
+            except Exception as e2:
+                logger.error(f"CRITICAL: Failed to allocate CS Pin {self.CS_PIN}: {e2}")
 
         GPIO.output(self.PWR_PIN, GPIO.HIGH)
         return 0
