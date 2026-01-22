@@ -328,7 +328,6 @@ def main():
         
         if args.init:
             tracker.reset()
-            tracker.sleep()
         else:
             tracker.update()
             
@@ -337,7 +336,6 @@ def main():
             time.sleep(15)
             
             tracker.reset()
-            tracker.sleep()
         
     except Exception as e:
         logger.error(f"Unhandled Exception: {e}", exc_info=True)
