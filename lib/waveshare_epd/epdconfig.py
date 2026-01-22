@@ -39,28 +39,47 @@ logger = logging.getLogger(__name__)
 
 
 class RaspberryPi:
-    # Pin definition
+    # Pin definition (BCM)
     RST_PIN  = 17
     DC_PIN   = 25
     CS_PIN   = 8
     BUSY_PIN = 24
     PWR_PIN  = 18
-    MOSI_PIN = 10
-    SCLK_PIN = 11
 
     def __init__(self):
         self.SPI = None
-        self.GPIO_RST_PIN = None
-        self.GPIO_DC_PIN = None
-        self.GPIO_BUSY_PIN = None
+        # Pin objects (Cached to avoid already-allocated errors)
+        self._pins = {}
+
+    def _get_pin(self, pin_num, direction="OUT"):
+        """Gets or creates a gpiozero pin object."""
+        import gpiozero
+        if pin_num not in self._pins:
+            try:
+                if direction == "OUT":
+                    self._pins[pin_num] = gpiozero.DigitalOutputDevice(pin_num)
+                else:
+                    self._pins[pin_num] = gpiozero.DigitalInputDevice(pin_num, pull_up=False)
+            except Exception as e:
+                logger.debug(f"Pin {pin_num} allocation error: {e}. Attempting reuse...")
+                # gpiozero usually doesn't allow easy reuse of the same pin index 
+                # unless the old object is closed.
+                pass
+        return self._pins.get(pin_num)
 
     def digital_write(self, pin, value):
-        import RPi.GPIO as GPIO
-        GPIO.output(pin, value)
+        p = self._get_pin(pin, "OUT")
+        if p:
+            if value:
+                p.on()
+            else:
+                p.off()
 
     def digital_read(self, pin):
-        import RPi.GPIO as GPIO
-        return GPIO.input(pin)
+        p = self._get_pin(pin, "IN")
+        if p:
+            return p.value
+        return 0
 
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
@@ -75,41 +94,20 @@ class RaspberryPi:
 
     def module_init(self, cleanup=False):
         import spidev
-        import RPi.GPIO as GPIO
-
         if self.SPI is None:
             self.SPI = spidev.SpiDev()
             self.SPI.open(0, 0)
             self.SPI.max_speed_hz = 4000000
             self.SPI.mode = 0b00
-            try:
-                self.SPI.no_cs = True
-            except:
-                pass
             
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        
-        # Core pins
-        GPIO.setup(self.RST_PIN, GPIO.OUT)
-        GPIO.setup(self.DC_PIN, GPIO.OUT)
-        GPIO.setup(self.PWR_PIN, GPIO.OUT)
-        GPIO.setup(self.BUSY_PIN, GPIO.IN)
+        # Ensure outputs are initialized
+        self._get_pin(self.RST_PIN, "OUT")
+        self._get_pin(self.DC_PIN, "OUT")
+        self._get_pin(self.CS_PIN, "OUT")
+        self._get_pin(self.PWR_PIN, "OUT")
+        self._get_pin(self.BUSY_PIN, "IN")
 
-        # CS_PIN requires special handling if claimed by SPI driver
-        try:
-            GPIO.setup(self.CS_PIN, GPIO.OUT)
-        except Exception as e:
-            logger.warning(f"Initial CS Pin setup failed: {e}. Attempting cleanup and retry...")
-            try:
-                # Try to force release it
-                GPIO.cleanup(self.CS_PIN)
-                GPIO.setup(self.CS_PIN, GPIO.OUT)
-                logger.info("CS Pin successfully re-allocated.")
-            except Exception as e2:
-                logger.error(f"CRITICAL: Failed to allocate CS Pin {self.CS_PIN}: {e2}")
-
-        GPIO.output(self.PWR_PIN, GPIO.HIGH)
+        self.digital_write(self.PWR_PIN, 1)
         return 0
 
     def module_exit(self, cleanup=False):
@@ -118,10 +116,15 @@ class RaspberryPi:
             self.SPI.close()
             self.SPI = None
 
-        logger.debug("close 5V, Module enters 0 power consumption ...")
-        import RPi.GPIO as GPIO
-        GPIO.output(self.RST_PIN, 0)
-        GPIO.output(self.DC_PIN, 0)
+        logger.debug("releasing GPIO pins...")
+        self.digital_write(self.RST_PIN, 0)
+        self.digital_write(self.DC_PIN, 0)
+        self.digital_write(self.PWR_PIN, 0)
+        
+        if cleanup:
+            for pin in self._pins.values():
+                pin.close()
+            self._pins.clear()
 
         
 

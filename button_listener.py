@@ -6,7 +6,7 @@ import datetime
 import threading
 import signal
 import time
-import RPi.GPIO as GPIO
+from gpiozero import Button, LED
 from threading import Timer
 
 # Add current directory to path to import tracker
@@ -38,23 +38,16 @@ class HabitController:
         self.reset_timer = None
         self._running = True
         
-        # Setup GPIO
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        # Ensure pins are set up here as well, just in case
-        GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.setup(LED_PIN, GPIO.OUT)
+        # Setup GPIO with gpiozero
+        logger.info(f"Hardware Setup: Button Pin {BUTTON_PIN}, LED Pin {LED_PIN}")
+        self.button = Button(BUTTON_PIN, pull_up=True)
+        self.led = LED(LED_PIN)
         
         # Initial state check
-        logger.info(f"Hardware Setup: Button Pin {BUTTON_PIN}, LED Pin {LED_PIN}")
-        try:
-            btn_val = GPIO.input(BUTTON_PIN)
-            logger.info(f"Initial Button Reading: {'HIGH' if btn_val else 'LOW (PRESSED)'}")
-        except Exception as e:
-            logger.warning(f"Could not read initial button state: {e}")
+        logger.info(f"Initial Button Reading: {'HIGH' if self.button.is_pressed == False else 'LOW (PRESSED)'}")
         
         # Initial LED State
-        GPIO.output(LED_PIN, GPIO.HIGH)
+        self.led.on()
         
         # Start background tasks
         self.schedule_reset()
@@ -74,11 +67,11 @@ class HabitController:
     def _polling_loop(self):
         """Dedicated thread for button polling."""
         logger.info("Button Polling Thread Started.")
-        last_state = GPIO.input(BUTTON_PIN)
+        last_state = self.button.is_pressed
         
         while self._running:
-            current_state = GPIO.input(BUTTON_PIN)
-            if current_state == GPIO.LOW and last_state == GPIO.HIGH:
+            current_state = self.button.is_pressed
+            if current_state == True and last_state == False:
                 # Button Transition: Released -> Pressed
                 logger.info(f"!! Button Press Detected on Pin {BUTTON_PIN} !!")
                 # Handle press in a separate thread so polling doesn't stop
@@ -89,7 +82,6 @@ class HabitController:
 
     def handle_press(self):
         """Main habit tracking action."""
-        # Use a simple lockout to prevent multiple triggers during one update
         logger.info("Logging habit completion...")
         self.flash_led()
         self.tracker.update()
@@ -103,18 +95,18 @@ class HabitController:
     def show_done_screen(self):
         """Shows the 'You did it' screen."""
         logger.info("Transitioning to Done screen.")
-        GPIO.output(LED_PIN, GPIO.LOW)
+        self.led.off()
         self.tracker.draw_done_screen()
 
     def flash_led(self):
         """Flashes the LED 5 times."""
         for _ in range(5):
-            GPIO.output(LED_PIN, GPIO.HIGH)
+            self.led.on()
             time.sleep(0.1)
-            GPIO.output(LED_PIN, GPIO.LOW)
+            self.led.off()
             time.sleep(0.1)
         # Stay ON after flash
-        GPIO.output(LED_PIN, GPIO.HIGH)
+        self.led.on()
 
     def schedule_reset(self):
         """Daily 3am reset."""
@@ -125,7 +117,7 @@ class HabitController:
 
     def daily_reset(self):
         logger.info("Running daily reset...")
-        GPIO.output(LED_PIN, GPIO.HIGH)
+        self.led.on()
         self.tracker.initialize()
         self.schedule_reset()
 
@@ -134,7 +126,8 @@ class HabitController:
         self._running = False
         if self.timer: self.timer.cancel()
         if self.reset_timer: self.reset_timer.cancel()
-        GPIO.cleanup()
+        self.button.close()
+        self.led.close()
         self.tracker.cleanup()
         sys.exit(0)
 
