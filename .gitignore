@@ -29,3 +29,5 @@ ENV/
 # Project
 stats.json
 
+# Assets
+assets/
