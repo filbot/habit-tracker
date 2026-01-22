@@ -41,12 +41,17 @@ class HabitController:
         # Setup GPIO
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
+        # Ensure pins are set up here as well, just in case
         GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         GPIO.setup(LED_PIN, GPIO.OUT)
         
         # Initial state check
         logger.info(f"Hardware Setup: Button Pin {BUTTON_PIN}, LED Pin {LED_PIN}")
-        logger.info(f"Initial Button Reading: {'HIGH' if GPIO.input(BUTTON_PIN) else 'LOW (PRESSED)'}")
+        try:
+            btn_val = GPIO.input(BUTTON_PIN)
+            logger.info(f"Initial Button Reading: {'HIGH' if btn_val else 'LOW (PRESSED)'}")
+        except Exception as e:
+            logger.warning(f"Could not read initial button state: {e}")
         
         # Initial LED State
         GPIO.output(LED_PIN, GPIO.HIGH)
