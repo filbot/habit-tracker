@@ -5,8 +5,8 @@ import logging
 import datetime
 import threading
 import signal
-from signal import pause
-from gpiozero import Button, LED
+import time
+import RPi.GPIO as GPIO
 from threading import Timer
 
 # Add current directory to path to import tracker
@@ -19,13 +19,9 @@ LED_PIN = 6
 STATS_DURATION = 15.0
 
 # Logging setup
-# Set up a single unified logger configuration
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(message)s'
 logging.basicConfig(level=logging.DEBUG, format=LOG_FORMAT)
 logger = logging.getLogger(__name__)
-
-# Reduce tracker log level to avoid noise if needed, but keep it DEBUG for now
-# logging.getLogger('tracker').setLevel(logging.INFO)
 
 def get_seconds_until_3am():
     """Calculates seconds until the next 3:00 AM."""
@@ -41,15 +37,24 @@ class HabitController:
         self.timer = None
         self.reset_timer = None
         
-        # Setup GPIO
-        # Pin 5 was identified as the active button (Pulled to GND when pressed)
-        logger.info(f"Setting up Button on Pin {BUTTON_PIN} and LED on Pin {LED_PIN}")
-        self.button = Button(BUTTON_PIN, pull_up=True, bounce_time=0.05)
-        self.led = LED(LED_PIN)
+        # Setup GPIO with RPi.GPIO (BCM mode)
+        GPIO.setmode(GPIO.BCM)
+        logger.info(f"Setting up Button on BCM Pin {BUTTON_PIN} and LED on Pin {LED_PIN} (using RPi.GPIO)")
         
-        self.led.on() # LED ON for WYAO
+        # Button: In with Pull-up
+        GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        # LED: Out
+        GPIO.setup(LED_PIN, GPIO.OUT)
         
-        self.button.when_pressed = lambda: self.handle_press(BUTTON_PIN)
+        # Check initial state
+        initial_state = "HIGH" if GPIO.input(BUTTON_PIN) else "LOW (GND)"
+        logger.info(f"Initial Button State: {initial_state}")
+        
+        # LED ON for WYAO
+        GPIO.output(LED_PIN, GPIO.HIGH)
+        
+        # Add event detection (Falling edge for pressed)
+        GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=self.handle_event, bouncetime=200)
         
         # Start 3AM Scheduler
         self.schedule_reset()
@@ -70,8 +75,7 @@ class HabitController:
             self.reset_timer.cancel()
         
         # Close GPIO pins
-        self.button.close()
-        self.led.close()
+        GPIO.cleanup()
         
         # Final display cleanup
         self.tracker.cleanup()
@@ -87,27 +91,33 @@ class HabitController:
     def daily_reset(self):
         """Resets the display to WYAO and reschedules."""
         logger.info("Executing Daily Reset...")
-        self.led.on()
+        GPIO.output(LED_PIN, GPIO.HIGH)
         self.tracker.initialize()
         self.schedule_reset()
 
     def show_done_screen(self):
         """Shows the 'You did it' screen."""
-        self.led.off()
+        GPIO.output(LED_PIN, GPIO.LOW)
         self.tracker.draw_done_screen()
         
     def flash_led(self):
         """Flashes the LED 5 times significantly."""
         def _flash():
             for _ in range(5):
-                self.led.on()
-                threading.Event().wait(0.1)
-                self.led.off()
-                threading.Event().wait(0.1)
+                GPIO.output(LED_PIN, GPIO.HIGH)
+                time.sleep(0.1)
+                GPIO.output(LED_PIN, GPIO.LOW)
+                time.sleep(0.1)
             # Ensure LED stays ON after flashing
-            self.led.on()
+            GPIO.output(LED_PIN, GPIO.HIGH)
             
         threading.Thread(target=_flash).start()
+
+    def handle_event(self, channel):
+        """Callback for GPIO event."""
+        # Check current state again to be sure (simple debounce check)
+        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
+            self.handle_press(channel)
 
     def handle_press(self, pin_num):
         """Log habit, show stats, then show done screen."""
@@ -115,7 +125,6 @@ class HabitController:
         self.flash_led()
         
         # 1. Log and Show Stats
-        # Run update which talks to EPD
         self.tracker.update()
         
         # 2. Schedule transition to 'Done' screen
@@ -128,9 +137,9 @@ if __name__ == "__main__":
     controller = HabitController()
     logger.info("Button Listener Started. Monitoring for presses...")
     try:
-        # Simple loop with periodic heartbeat to verify service is alive
+        # Simple loop with periodic heartbeat
         while True:
-            threading.Event().wait(600) # Heartbeat every 10 mins
+            time.sleep(600) # Sleep 10 mins
             logger.info("Heartbeat: Button Listener is still alive")
     except (KeyboardInterrupt, SystemExit):
         logger.info("Exiting...")
