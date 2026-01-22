@@ -27,21 +27,45 @@ FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 def get_font(size):
     try:
-        return ImageFont.truetype(FONT_PATH, size)
-    except IOError:
+        # Try to use a common path on Pi, or common system paths
+        paths = [
+            FONT_PATH,
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf"
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return ImageFont.truetype(path, size)
+        
+        # Fallback to default if no TTF found
+        return ImageFont.load_default()
+    except Exception:
         return ImageFont.load_default()
 
 def fit_text(draw, text, max_width, max_height):
     size = 10
     font = get_font(size)
-    while True:
+    
+    # If using fixed-size default font, exit immediately
+    if not hasattr(font, 'getbbox'): # load_default() fonts are limited
+         return font
+
+    while size < 100: # Added safety limit
         bbox = draw.textbbox((0, 0), text, font=font)
         width = bbox[2] - bbox[0]
         height = bbox[3] - bbox[1]
         if width >= max_width or height >= max_height:
-            return get_font(size - 1)
+            return get_font(max(1, size - 1))
         size += 1
         font = get_font(size)
+        
+        # Check if font actually changed size (detect load_default fallback)
+        if hasattr(font, "font"): # truetype objects have .font
+             pass
+        else:
+             return font # Probably load_default
+             
+    return font
 
 def get_weekly_volume(history):
     now = datetime.now()

@@ -119,8 +119,6 @@ class RaspberryPi:
             self.SPI = None
 
         logger.debug("close 5V, Module enters 0 power consumption ...")
-        if self.GPIO_PWR_PIN:
-            self.GPIO_PWR_PIN.off()
 
         if self.GPIO_BUSY_PIN:
             self.GPIO_BUSY_PIN.close()
