@@ -30,5 +30,6 @@ ENV/
 stats.json
 
 # Assets
-assets/
+*.dxf
+*.ai
 *.pdf

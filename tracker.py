@@ -27,17 +27,17 @@ FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 
 def get_font_file():
     """Finds a valid TrueType font file on the system."""
+    # 1. Check for a bundled project font (Most reliable)
+    bundled_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'assets', 'font.ttf')
+    if os.path.exists(bundled_path):
+        return bundled_path
+
+    # 2. Check standard system paths (Fallback)
     paths = [
-        # Standard DejaVu paths (very common on Pi/Raspbian)
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-        # Liberation paths
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf",
-        # FreeFont paths
         "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeMonoBold.ttf",
-        # Custom user path
         FONT_PATH
     ]
     for path in paths:
