@@ -7,6 +7,7 @@ import logging
 import json
 import argparse
 import random
+import threading
 from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 
@@ -272,40 +273,50 @@ def draw_done_screen(epd):
     
     epd.display(epd.getbuffer(image_black))
 
+
 class HabitTracker:
     def __init__(self):
         self.epd = epd2in13_V4.EPD()
-        logger.info("Init")
+        self.lock = threading.Lock()
+        logger.info("HabitTracker Initialized")
         # Ensure DB is initialized
         database.init_db()
         
+    def _with_display(self, func, *args, **kwargs):
+        """Ensures display is initialized before and sleeps after."""
+        with self.lock:
+            try:
+                self.epd.init()
+                result = func(self.epd, *args, **kwargs)
+                return result
+            finally:
+                self.sleep()
+
     def initialize(self):
-        self.epd.init()
-        draw_wyao(self.epd)
-        self.sleep()
+        self._with_display(draw_wyao)
 
     def update(self):
-        self.epd.init() # Ensure awake and SPI open
         # Update stats in DB
         database.add_log()
-        
-        # Show stats
-        draw_stats(self.epd)
+        # Show stats on display
+        self._with_display(draw_stats)
         
     def draw_done_screen(self):
-        self.epd.init()
-        draw_done_screen(self.epd)
-        self.sleep()
+        self._with_display(draw_done_screen)
         
     def reset(self):
-        self.epd.init() # Ensure awake and SPI open
         # Revert to WYAO
-        draw_wyao(self.epd)
-        self.sleep()
+        self._with_display(draw_wyao)
         
     def sleep(self):
-        logger.info("Goto Sleep...")
+        logger.info("Display Sleeping...")
         self.epd.sleep()
+        
+    def cleanup(self):
+        """Final cleanup of GPIO."""
+        with self.lock:
+            logger.info("Cleaning up GPIO...")
+            epd2in13_V4.epdconfig.module_exit()
 
 def main():
     parser = argparse.ArgumentParser(description='Habit Tracker Display')

@@ -4,6 +4,7 @@ import sys
 import logging
 import datetime
 import threading
+import signal
 from signal import pause
 from gpiozero import Button, LED
 from threading import Timer
@@ -49,6 +50,26 @@ class HabitController:
         
         # Initial State
         self.tracker.initialize()
+        
+        # Signal handling for clean exit
+        signal.signal(signal.SIGINT, self.cleanup)
+        signal.signal(signal.SIGTERM, self.cleanup)
+
+    def cleanup(self, signum=None, frame=None):
+        """Performs clean exit."""
+        logger.info("Cleaning up...")
+        if self.timer:
+            self.timer.cancel()
+        if self.reset_timer:
+            self.reset_timer.cancel()
+        
+        # Close GPIO pins
+        self.button.close()
+        self.led.close()
+        
+        # Final display cleanup
+        self.tracker.cleanup()
+        sys.exit(0)
 
     def schedule_reset(self):
         """Schedules the daily reset at 3am."""
@@ -102,5 +123,5 @@ if __name__ == "__main__":
     logger.info("Button Listener Started...")
     try:
         pause()
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         logger.info("Exiting...")
