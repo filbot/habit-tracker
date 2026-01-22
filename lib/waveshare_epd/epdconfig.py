@@ -55,29 +55,12 @@ class RaspberryPi:
         self.GPIO_BUSY_PIN = None
 
     def digital_write(self, pin, value):
-        if pin == self.RST_PIN:
-            if self.GPIO_RST_PIN:
-                if value:
-                    self.GPIO_RST_PIN.on()
-                else:
-                    self.GPIO_RST_PIN.off()
-        elif pin == self.DC_PIN:
-            if self.GPIO_DC_PIN:
-                if value:
-                    self.GPIO_DC_PIN.on()
-                else:
-                    self.GPIO_DC_PIN.off()
+        import RPi.GPIO as GPIO
+        GPIO.output(pin, value)
 
     def digital_read(self, pin):
-        if pin == self.BUSY_PIN and self.GPIO_BUSY_PIN:
-            return self.GPIO_BUSY_PIN.value
-        elif pin == self.RST_PIN and self.GPIO_RST_PIN:
-            return self.GPIO_RST_PIN.value
-        elif pin == self.DC_PIN and self.GPIO_DC_PIN:
-            return self.GPIO_DC_PIN.value
-        elif pin == self.PWR_PIN and self.GPIO_PWR_PIN:
-            return self.GPIO_PWR_PIN.value
-        return 0
+        import RPi.GPIO as GPIO
+        return GPIO.input(pin)
 
     def delay_ms(self, delaytime):
         time.sleep(delaytime / 1000.0)
@@ -92,7 +75,7 @@ class RaspberryPi:
 
     def module_init(self, cleanup=False):
         import spidev
-        import gpiozero
+        import RPi.GPIO as GPIO
 
         if self.SPI is None:
             self.SPI = spidev.SpiDev()
@@ -100,15 +83,11 @@ class RaspberryPi:
             self.SPI.max_speed_hz = 4000000
             self.SPI.mode = 0b00
             
-        if self.GPIO_RST_PIN is None:
-            logger.debug(f"Init RST Pin {self.RST_PIN}")
-            self.GPIO_RST_PIN = gpiozero.DigitalOutputDevice(self.RST_PIN)
-        if self.GPIO_DC_PIN is None:
-            logger.debug(f"Init DC Pin {self.DC_PIN}")
-            self.GPIO_DC_PIN = gpiozero.DigitalOutputDevice(self.DC_PIN)
-        if self.GPIO_BUSY_PIN is None:
-            logger.debug(f"Init BUSY Pin {self.BUSY_PIN}")
-            self.GPIO_BUSY_PIN = gpiozero.DigitalInputDevice(self.BUSY_PIN, pull_up=False)
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
+        GPIO.setup(self.RST_PIN, GPIO.OUT)
+        GPIO.setup(self.DC_PIN, GPIO.OUT)
+        GPIO.setup(self.BUSY_PIN, GPIO.IN)
 
         return 0
 
@@ -119,10 +98,9 @@ class RaspberryPi:
             self.SPI = None
 
         logger.debug("close 5V, Module enters 0 power consumption ...")
-
-        if self.GPIO_BUSY_PIN:
-            self.GPIO_BUSY_PIN.close()
-            self.GPIO_BUSY_PIN = None
+        import RPi.GPIO as GPIO
+        GPIO.output(self.RST_PIN, 0)
+        GPIO.output(self.DC_PIN, 0)
 
         
 

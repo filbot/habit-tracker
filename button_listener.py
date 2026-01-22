@@ -36,111 +36,109 @@ class HabitController:
         self.tracker = HabitTracker()
         self.timer = None
         self.reset_timer = None
+        self._running = True
         
-        # Setup GPIO with RPi.GPIO (BCM mode)
+        # Setup GPIO
         GPIO.setmode(GPIO.BCM)
-        logger.info(f"Setting up Button on BCM Pin {BUTTON_PIN} and LED on Pin {LED_PIN} (using RPi.GPIO)")
-        
-        # Button: In with Pull-up
+        GPIO.setwarnings(False)
         GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        # LED: Out
         GPIO.setup(LED_PIN, GPIO.OUT)
         
-        # Check initial state
-        initial_state = "HIGH" if GPIO.input(BUTTON_PIN) else "LOW (GND)"
-        logger.info(f"Initial Button State: {initial_state}")
+        # Initial state check
+        logger.info(f"Hardware Setup: Button Pin {BUTTON_PIN}, LED Pin {LED_PIN}")
+        logger.info(f"Initial Button Reading: {'HIGH' if GPIO.input(BUTTON_PIN) else 'LOW (PRESSED)'}")
         
-        # LED ON for WYAO
+        # Initial LED State
         GPIO.output(LED_PIN, GPIO.HIGH)
         
-        # Add event detection (Falling edge for pressed)
-        GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING, callback=self.handle_event, bouncetime=200)
-        
-        # Start 3AM Scheduler
+        # Start background tasks
         self.schedule_reset()
         
-        # Initial State
+        # Spawn polling thread
+        self.poll_thread = threading.Thread(target=self._polling_loop, daemon=True)
+        self.poll_thread.start()
+        
+        # Initial Display State
+        logger.info("Performing initial display refresh...")
         self.tracker.initialize()
         
-        # Signal handling for clean exit
+        # Signal handling
         signal.signal(signal.SIGINT, self.cleanup)
         signal.signal(signal.SIGTERM, self.cleanup)
 
-    def cleanup(self, signum=None, frame=None):
-        """Performs clean exit."""
-        logger.info("Cleaning up...")
-        if self.timer:
-            self.timer.cancel()
-        if self.reset_timer:
-            self.reset_timer.cancel()
+    def _polling_loop(self):
+        """Dedicated thread for button polling."""
+        logger.info("Button Polling Thread Started.")
+        last_state = GPIO.input(BUTTON_PIN)
         
-        # Close GPIO pins
-        GPIO.cleanup()
-        
-        # Final display cleanup
-        self.tracker.cleanup()
-        sys.exit(0)
-
-    def schedule_reset(self):
-        """Schedules the daily reset at 3am."""
-        seconds = get_seconds_until_3am()
-        logger.info(f"Scheduling reset in {seconds} seconds")
-        self.reset_timer = Timer(seconds, self.daily_reset)
-        self.reset_timer.start()
-
-    def daily_reset(self):
-        """Resets the display to WYAO and reschedules."""
-        logger.info("Executing Daily Reset...")
-        GPIO.output(LED_PIN, GPIO.HIGH)
-        self.tracker.initialize()
-        self.schedule_reset()
-
-    def show_done_screen(self):
-        """Shows the 'You did it' screen."""
-        GPIO.output(LED_PIN, GPIO.LOW)
-        self.tracker.draw_done_screen()
-        
-    def flash_led(self):
-        """Flashes the LED 5 times significantly."""
-        def _flash():
-            for _ in range(5):
-                GPIO.output(LED_PIN, GPIO.HIGH)
-                time.sleep(0.1)
-                GPIO.output(LED_PIN, GPIO.LOW)
-                time.sleep(0.1)
-            # Ensure LED stays ON after flashing
-            GPIO.output(LED_PIN, GPIO.HIGH)
+        while self._running:
+            current_state = GPIO.input(BUTTON_PIN)
+            if current_state == GPIO.LOW and last_state == GPIO.HIGH:
+                # Button Transition: Released -> Pressed
+                logger.info(f"!! Button Press Detected on Pin {BUTTON_PIN} !!")
+                # Handle press in a separate thread so polling doesn't stop
+                threading.Thread(target=self.handle_press).start()
             
-        threading.Thread(target=_flash).start()
+            last_state = current_state
+            time.sleep(0.05) # 50ms polling
 
-    def handle_event(self, channel):
-        """Callback for GPIO event."""
-        # Check current state again to be sure (simple debounce check)
-        if GPIO.input(BUTTON_PIN) == GPIO.LOW:
-            self.handle_press(channel)
-
-    def handle_press(self, pin_num):
-        """Log habit, show stats, then show done screen."""
-        logger.info(f"Button Pressed on Pin {pin_num}! Logging Habit...")
+    def handle_press(self):
+        """Main habit tracking action."""
+        # Use a simple lockout to prevent multiple triggers during one update
+        logger.info("Logging habit completion...")
         self.flash_led()
-        
-        # 1. Log and Show Stats
         self.tracker.update()
         
-        # 2. Schedule transition to 'Done' screen
+        # Schedule back to done screen
         if self.timer:
             self.timer.cancel()
         self.timer = Timer(STATS_DURATION, self.show_done_screen)
         self.timer.start()
 
+    def show_done_screen(self):
+        """Shows the 'You did it' screen."""
+        logger.info("Transitioning to Done screen.")
+        GPIO.output(LED_PIN, GPIO.LOW)
+        self.tracker.draw_done_screen()
+
+    def flash_led(self):
+        """Flashes the LED 5 times."""
+        for _ in range(5):
+            GPIO.output(LED_PIN, GPIO.HIGH)
+            time.sleep(0.1)
+            GPIO.output(LED_PIN, GPIO.LOW)
+            time.sleep(0.1)
+        # Stay ON after flash
+        GPIO.output(LED_PIN, GPIO.HIGH)
+
+    def schedule_reset(self):
+        """Daily 3am reset."""
+        seconds = get_seconds_until_3am()
+        logger.info(f"Scheduled 3AM reset in {seconds:.2f} seconds")
+        self.reset_timer = Timer(seconds, self.daily_reset)
+        self.reset_timer.start()
+
+    def daily_reset(self):
+        logger.info("Running daily reset...")
+        GPIO.output(LED_PIN, GPIO.HIGH)
+        self.tracker.initialize()
+        self.schedule_reset()
+
+    def cleanup(self, signum=None, frame=None):
+        logger.info("Shutting down...")
+        self._running = False
+        if self.timer: self.timer.cancel()
+        if self.reset_timer: self.reset_timer.cancel()
+        GPIO.cleanup()
+        self.tracker.cleanup()
+        sys.exit(0)
+
 if __name__ == "__main__":
     controller = HabitController()
-    logger.info("Button Listener Started. Monitoring for presses...")
+    logger.info("Application is running. Heartbeat every 10 mins.")
     try:
-        # Simple loop with periodic heartbeat
         while True:
-            time.sleep(600) # Sleep 10 mins
-            logger.info("Heartbeat: Button Listener is still alive")
+            time.sleep(600)
+            logger.info("Heartbeat: Service Active")
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Exiting...")
         controller.cleanup()
