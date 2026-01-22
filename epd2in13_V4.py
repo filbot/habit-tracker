@@ -101,7 +101,7 @@ class EPD:
     # initialize 
     def init(self):
         if (epdconfig.module_init() != 0):
-            return -1
+            raise RuntimeError("Failed to initialize EPD module (GPIO Busy?)")
             
         self.reset()
         

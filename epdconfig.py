@@ -56,13 +56,31 @@ class RaspberryPi:
             
             # 2. Claim Output Pins
             # RST, DC, PWR
-            lgpio.gpio_claim_output(self.gpio_handle, RST_PIN)
-            lgpio.gpio_claim_output(self.gpio_handle, DC_PIN)
-            lgpio.gpio_claim_output(self.gpio_handle, PWR_PIN)
+            try:
+                lgpio.gpio_claim_output(self.gpio_handle, RST_PIN)
+            except Exception:
+                logger.error(f"Failed to claim RST_PIN ({RST_PIN})")
+                raise
+
+            try:
+                lgpio.gpio_claim_output(self.gpio_handle, DC_PIN)
+            except Exception:
+                logger.error(f"Failed to claim DC_PIN ({DC_PIN})")
+                raise
+                
+            try:
+                lgpio.gpio_claim_output(self.gpio_handle, PWR_PIN)
+            except Exception:
+                logger.error(f"Failed to claim PWR_PIN ({PWR_PIN})")
+                raise
             
             # 3. Claim Input Pins
             # BUSY (Active High usually, usage depends on driver)
-            lgpio.gpio_claim_input(self.gpio_handle, BUSY_PIN)
+            try:
+                lgpio.gpio_claim_input(self.gpio_handle, BUSY_PIN)
+            except Exception:
+                logger.error(f"Failed to claim BUSY_PIN ({BUSY_PIN})")
+                raise
             
             # 4. Initialize States
             lgpio.gpio_write(self.gpio_handle, PWR_PIN, 1)

@@ -276,7 +276,6 @@ class HabitTracker:
     def __init__(self):
         self.epd = epd2in13_V4.EPD()
         logger.info("Init")
-        self.epd.init()
         # Ensure DB is initialized
         database.init_db()
         
