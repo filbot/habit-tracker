@@ -87,8 +87,11 @@ class RaspberryPi:
         GPIO.setwarnings(False)
         GPIO.setup(self.RST_PIN, GPIO.OUT)
         GPIO.setup(self.DC_PIN, GPIO.OUT)
+        GPIO.setup(self.CS_PIN, GPIO.OUT)
+        GPIO.setup(self.PWR_PIN, GPIO.OUT)
         GPIO.setup(self.BUSY_PIN, GPIO.IN)
 
+        GPIO.output(self.PWR_PIN, GPIO.HIGH)
         return 0
 
     def module_exit(self, cleanup=False):
