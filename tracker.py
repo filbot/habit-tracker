@@ -12,12 +12,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 import database
 
-# Add current directory to path
-libdir = os.path.dirname(os.path.realpath(__file__))
+# Add lib to path
+libdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'lib')
 if os.path.exists(libdir):
     sys.path.append(libdir)
 
-import epd2in13_V4
+from waveshare_epd import epd2in13_V4
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

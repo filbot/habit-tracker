@@ -4,3 +4,4 @@ rpi-lgpio
 Pillow
 fastapi
 uvicorn
+gpiozero
