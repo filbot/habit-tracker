@@ -1,7 +1,6 @@
 spidev
-RPi.GPIO
-rpi-lgpio
+lgpio
+gpiozero
 Pillow
 fastapi
 uvicorn
-gpiozero

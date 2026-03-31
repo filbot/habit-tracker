@@ -1,15 +1,9 @@
-// Fetch Data
+// Fetch Data — single endpoint to avoid redundant DB reads
 async function fetchData() {
     try {
-        const [logsRes, statsRes] = await Promise.all([
-            fetch('/logs'),
-            fetch('/stats')
-        ]);
-
-        const logs = await logsRes.json();
-        const stats = await statsRes.json();
-
-        renderDashboard(logs, stats);
+        const res = await fetch('/dashboard');
+        const data = await res.json();
+        renderDashboard(data.logs, data.stats);
     } catch (e) {
         console.error("Fetch failed", e);
     }
@@ -36,71 +30,87 @@ function renderDashboard(logs, stats) {
     renderHeatmap(dailyCounts);
 }
 
+let _prevCounts = null;
+let _heatmapBuilt = false;
+
 function renderHeatmap(dailyCounts) {
     const container = document.getElementById('heatmap');
-    container.innerHTML = '';
-    container.className = 'heatmap-year'; // Switch to flex container
-
     const now = new Date();
     const currentYear = now.getFullYear();
 
-    // Iterate through months 0-11
-    for (let month = 0; month < 12; month++) {
-        // Create Month Block
-        const monthBlock = document.createElement('div');
-        monthBlock.className = 'month-block';
+    // Full rebuild only on first render
+    if (!_heatmapBuilt) {
+        container.innerHTML = '';
+        container.className = 'heatmap-year';
 
-        // Label
-        const monthLabel = document.createElement('div');
-        monthLabel.className = 'month-label';
-        const date = new Date(currentYear, month, 1);
-        monthLabel.innerText = date.toLocaleString('default', { month: 'short' });
-        monthBlock.appendChild(monthLabel);
+        for (let month = 0; month < 12; month++) {
+            const monthBlock = document.createElement('div');
+            monthBlock.className = 'month-block';
 
-        // Grid
-        const monthGrid = document.createElement('div');
-        monthGrid.className = 'month-grid';
+            const monthLabel = document.createElement('div');
+            monthLabel.className = 'month-label';
+            const date = new Date(currentYear, month, 1);
+            monthLabel.innerText = date.toLocaleString('default', { month: 'short' });
+            monthBlock.appendChild(monthLabel);
 
-        // Calculate days in month and start day
-        const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
-        const startDay = new Date(currentYear, month, 1).getDay(); // 0=Sun
+            const monthGrid = document.createElement('div');
+            monthGrid.className = 'month-grid';
 
-        // Add empty cells for padding
-        for (let i = 0; i < startDay; i++) {
-            const empty = document.createElement('div');
-            empty.className = 'day-cell empty';
-            monthGrid.appendChild(empty);
+            const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
+            const startDay = new Date(currentYear, month, 1).getDay();
+
+            for (let i = 0; i < startDay; i++) {
+                const empty = document.createElement('div');
+                empty.className = 'day-cell empty';
+                monthGrid.appendChild(empty);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const m = String(month + 1).padStart(2, '0');
+                const d = String(day).padStart(2, '0');
+                const dateStr = `${currentYear}-${m}-${d}`;
+
+                const count = dailyCounts[dateStr] || 0;
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                cell.setAttribute('data-date', dateStr);
+                cell.setAttribute('data-level', count > 0 ? 1 : 0);
+                cell.title = `${dateStr}: ${count} logs`;
+
+                monthGrid.appendChild(cell);
+            }
+
+            monthBlock.appendChild(monthGrid);
+            container.appendChild(monthBlock);
         }
+        _heatmapBuilt = true;
+        _prevCounts = dailyCounts;
+        return;
+    }
 
-        // Add days
+    // Differential update — only touch cells whose count changed
+    for (let month = 0; month < 12; month++) {
+        const daysInMonth = new Date(currentYear, month + 1, 0).getDate();
         for (let day = 1; day <= daysInMonth; day++) {
-            // Format YYYY-MM-DD
-            // Note: Month is 0-indexed, so +1. Pad with 0.
             const m = String(month + 1).padStart(2, '0');
             const d = String(day).padStart(2, '0');
             const dateStr = `${currentYear}-${m}-${d}`;
 
-            const count = dailyCounts[dateStr] || 0;
+            const newCount = dailyCounts[dateStr] || 0;
+            const oldCount = (_prevCounts && _prevCounts[dateStr]) || 0;
 
-            const cell = document.createElement('div');
-            cell.className = 'day-cell';
-
-            // Determine Level (Binary)
-            let level = 0;
-            if (count > 0) level = 1;
-
-            cell.setAttribute('data-level', level);
-            cell.title = `${dateStr}: ${count} logs`;
-
-            monthGrid.appendChild(cell);
+            if (newCount !== oldCount) {
+                const cell = container.querySelector(`[data-date="${dateStr}"]`);
+                if (cell) {
+                    cell.setAttribute('data-level', newCount > 0 ? 1 : 0);
+                    cell.title = `${dateStr}: ${newCount} logs`;
+                }
+            }
         }
-
-        monthBlock.appendChild(monthGrid);
-        container.appendChild(monthBlock);
     }
+    _prevCounts = dailyCounts;
 }
 
 // Init
 fetchData();
 setInterval(fetchData, 60000); // Refresh every minute
-

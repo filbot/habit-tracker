@@ -61,10 +61,7 @@ class RaspberryPi:
                 else:
                     self._pins[pin_num] = gpiozero.DigitalInputDevice(pin_num, pull_up=False)
             except Exception as e:
-                logger.debug(f"Pin {pin_num} allocation error: {e}. Attempting reuse...")
-                # gpiozero usually doesn't allow easy reuse of the same pin index 
-                # unless the old object is closed.
-                pass
+                logger.error(f"Pin {pin_num} allocation failed: {e}")
         return self._pins.get(pin_num)
 
     def digital_write(self, pin, value):
@@ -74,11 +71,14 @@ class RaspberryPi:
                 p.on()
             else:
                 p.off()
+        else:
+            logger.warning(f"digital_write: pin {pin} is not available")
 
     def digital_read(self, pin):
         p = self._get_pin(pin, "IN")
         if p:
             return p.value
+        logger.warning(f"digital_read: pin {pin} is not available")
         return 0
 
     def delay_ms(self, delaytime):

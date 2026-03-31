@@ -37,6 +37,7 @@ class HabitController:
         self.timer = None
         self.reset_timer = None
         self._running = True
+        self._timer_lock = threading.Lock()
         
         # Setup GPIO with gpiozero
         logger.info(f"Hardware Setup: Button Pin {BUTTON_PIN}, LED Pin {LED_PIN}")
@@ -85,12 +86,13 @@ class HabitController:
         logger.info("Logging habit completion...")
         self.flash_led()
         self.tracker.update()
-        
+
         # Schedule back to done screen
-        if self.timer:
-            self.timer.cancel()
-        self.timer = Timer(STATS_DURATION, self.show_done_screen)
-        self.timer.start()
+        with self._timer_lock:
+            if self.timer:
+                self.timer.cancel()
+            self.timer = Timer(STATS_DURATION, self.show_done_screen)
+            self.timer.start()
 
     def show_done_screen(self):
         """Shows the 'You did it' screen."""

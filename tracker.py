@@ -45,13 +45,20 @@ def get_font_file():
             return path
     return None
 
+_font_cache = {}
+
 def get_font(size):
     font_file = get_font_file()
     if font_file:
+        cache_key = (font_file, size)
+        if cache_key in _font_cache:
+            return _font_cache[cache_key]
         try:
-            return ImageFont.truetype(font_file, size)
-        except Exception:
-            pass
+            font = ImageFont.truetype(font_file, size)
+            _font_cache[cache_key] = font
+            return font
+        except Exception as e:
+            logger.warning(f"Failed to load font '{font_file}' at size {size}: {e}")
     return ImageFont.load_default()
 
 def fit_text(draw, text, max_width, max_height):
@@ -60,24 +67,24 @@ def fit_text(draw, text, max_width, max_height):
         logger.warning("No TTF font found, falling back to default tiny font.")
         return ImageFont.load_default()
 
-    size = 10
-    best_font = ImageFont.truetype(font_file, size)
-    
-    # Binary-ish search or just aggressive increment for best fit
-    while size < 250: # max possible size for this screen
-        test_font = ImageFont.truetype(font_file, size)
+    # Binary search for the largest font size that fits
+    lo, hi = 10, 250
+    best_size = lo
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        test_font = get_font(mid)
         bbox = draw.textbbox((0, 0), text, font=test_font)
         w = bbox[2] - bbox[0]
         h = bbox[3] - bbox[1]
-        
-        if w > max_width or h > max_height:
-            break
-            
-        best_font = test_font
-        size += 2 # Step by 2 for speed
-        
-    logger.debug(f"Selected font size: {size-2} for text '{text}'")
-    return best_font
+
+        if w <= max_width and h <= max_height:
+            best_size = mid
+            lo = mid + 1
+        else:
+            hi = mid - 1
+
+    logger.debug(f"Selected font size: {best_size} for text '{text}'")
+    return get_font(best_size)
 
 def get_weekly_volume(history):
     now = datetime.now()
@@ -149,12 +156,14 @@ def draw_stats(epd):
     draw_black = ImageDraw.Draw(image_black)
     
     # Calculate Metrics from Database
-    history = database.get_all_logs()
+    # Only fetch last ~53 weeks for streak/volume calculation
+    since = (datetime.now() - timedelta(weeks=53)).isoformat()
+    recent_history = database.get_logs_since(since)
     offset = database.get_offset()
-    
-    vol = get_weekly_volume(history)
-    streak = get_weekly_streak(history)
-    total = len(history) + offset
+
+    vol = get_weekly_volume(recent_history)
+    streak = get_weekly_streak(recent_history)
+    total = database.get_log_count() + offset
     
     # Layout Constants
     padding = 10
@@ -242,7 +251,7 @@ def draw_stats(epd):
         value_y = label_y + label_h + inner_gap
         draw_black.text((v_x, value_y), value, font=font_value, fill=0)
     
-    epd.display(epd.getbuffer(image_black))
+    epd.displayPartial(epd.getbuffer(image_black))
 
 def draw_wyao(epd):
     logger.info("Drawing Init State (WYAO)")
@@ -268,8 +277,9 @@ def draw_wyao(epd):
     y = height // 2
     
     draw_black.text((x, y), text, font=font, fill=0, anchor="mm")
-        
-    epd.display(epd.getbuffer(image_black))
+
+    # Full refresh for WYAO — sets base image and clears ghosting
+    epd.displayPartBaseImage(epd.getbuffer(image_black))
 
 def draw_done_screen(epd):
     logger.info("Drawing Done Screen")
@@ -294,8 +304,8 @@ def draw_done_screen(epd):
     # if the font has descender space.
     # But let's try pure 'mm' first as it's standard.
     draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
-    
-    epd.display(epd.getbuffer(image_black))
+
+    epd.displayPartial(epd.getbuffer(image_black))
 
 
 class HabitTracker:
@@ -310,9 +320,15 @@ class HabitTracker:
         """Ensures display is initialized before and sleeps after."""
         with self.lock:
             try:
-                self.epd.init()
+                ret = self.epd.init()
+                if ret != 0:
+                    logger.error("Display init failed (SPI/GPIO unavailable)")
+                    return None
                 result = func(self.epd, *args, **kwargs)
                 return result
+            except TimeoutError as e:
+                logger.error(f"Display timeout: {e}")
+                return None
             finally:
                 self.sleep()
 
@@ -347,26 +363,25 @@ def main():
     parser.add_argument('--init', action='store_true', help='Initialize display to WYAO state')
     args = parser.parse_args()
 
+    tracker = HabitTracker()
     try:
-        tracker = HabitTracker()
-        
         if args.init:
             tracker.reset()
         else:
             tracker.update()
-            
+
             # Wait 15 seconds
             logger.info("Waiting 15 seconds...")
             time.sleep(15)
-            
+
             tracker.reset()
-        
+
+    except KeyboardInterrupt:
+        logger.info("ctrl + c:")
     except Exception as e:
         logger.error(f"Unhandled Exception: {e}", exc_info=True)
-    except KeyboardInterrupt:    
-        logger.info("ctrl + c:")
+    finally:
         tracker.cleanup()
-        exit()
 
 if __name__ == "__main__":
     main()
