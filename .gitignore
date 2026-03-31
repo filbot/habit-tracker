@@ -33,3 +33,6 @@ stats.json
 *.dxf
 *.ai
 *.pdf
+
+# Claude files
+.claude/

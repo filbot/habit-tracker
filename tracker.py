@@ -4,7 +4,7 @@ import sys
 import os
 import time
 import logging
-import json
+import functools
 import argparse
 import random
 import threading
@@ -20,10 +20,14 @@ if os.path.exists(libdir):
 
 from waveshare_epd import epd2in13_V4
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 FONT_PATH = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+
+MOTIVATIONAL_MESSAGES = (
+    "Keep it up!", "Great job!", "You got this!", "Don't stop!",
+    "Crushing it!", "Let's go!", "Nice work!", "Way to go!",
+)
 
 def get_font_file():
     """Finds a valid TrueType font file on the system."""
@@ -45,19 +49,16 @@ def get_font_file():
             return path
     return None
 
-_font_cache = {}
+@functools.lru_cache(maxsize=32)
+def _load_truetype(font_file, size):
+    return ImageFont.truetype(font_file, size)
 
 def get_font(size):
     font_file = get_font_file()
     if font_file:
-        cache_key = (font_file, size)
-        if cache_key in _font_cache:
-            return _font_cache[cache_key]
         try:
-            font = ImageFont.truetype(font_file, size)
-            _font_cache[cache_key] = font
-            return font
-        except Exception as e:
+            return _load_truetype(font_file, size)
+        except OSError as e:
             logger.warning(f"Failed to load font '{font_file}' at size {size}: {e}")
     return ImageFont.load_default()
 
@@ -196,17 +197,7 @@ def draw_stats(epd):
     msg_area_height = box_y_start - padding
     msg_area_center_y = msg_area_height // 2
     
-    messages = [
-        "Keep it up!",
-        "Great job!",
-        "You got this!",
-        "Don't stop!",
-        "Crushing it!",
-        "Let's go!",
-        "Nice work!",
-        "Way to go!"
-    ]
-    msg = random.choice(messages)
+    msg = random.choice(MOTIVATIONAL_MESSAGES)
     font_msg = get_font(28)
     
     # Center message
@@ -325,11 +316,14 @@ class HabitTracker:
                     return None
                 result = func(self.epd, *args, **kwargs)
                 return result
-            except TimeoutError as e:
-                logger.error(f"Display timeout: {e}")
+            except Exception as e:
+                logger.error(f"Display operation failed: {e}", exc_info=True)
                 return None
             finally:
-                self.sleep()
+                try:
+                    self.sleep()
+                except Exception as e:
+                    logger.error(f"Display sleep failed: {e}", exc_info=True)
 
     def initialize(self):
         self._with_display(draw_wyao)

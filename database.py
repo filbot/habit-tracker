@@ -15,6 +15,9 @@ def get_db_connection():
 
 def init_db():
     with closing(get_db_connection()) as conn:
+        # Enable WAL mode for safe concurrent access from API + button_listener
+        conn.execute("PRAGMA journal_mode=WAL")
+
         cursor = conn.cursor()
 
         # Create logs table

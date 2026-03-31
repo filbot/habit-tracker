@@ -31,9 +31,6 @@ import os
 import logging
 import sys
 import time
-import subprocess
-
-from ctypes import *
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +69,8 @@ class RaspberryPi:
                 p.on()
             else:
                 p.off()
+        elif pin in (self.RST_PIN, self.DC_PIN, self.PWR_PIN):
+            logger.warning(f"Cannot write to critical pin {pin} (not available)")
 
     def digital_read(self, pin):
         p = self._get_pin(pin, "IN")
@@ -121,7 +120,8 @@ class RaspberryPi:
         
         if cleanup:
             for pin in self._pins.values():
-                pin.close()
+                if pin:
+                    pin.close()
             self._pins.clear()
 
         
@@ -264,15 +264,13 @@ class SunriseX3:
         self.GPIO.cleanup([self.RST_PIN, self.DC_PIN, self.CS_PIN, self.BUSY_PIN], self.PWR_PIN)
 
 
-if sys.version_info[0] == 2:
-    process = subprocess.Popen("cat /proc/cpuinfo | grep Raspberry", shell=True, stdout=subprocess.PIPE)
-else:
-    process = subprocess.Popen("cat /proc/cpuinfo | grep Raspberry", shell=True, stdout=subprocess.PIPE, text=True)
-output, _ = process.communicate()
-if sys.version_info[0] == 2:
-    output = output.decode(sys.stdout.encoding)
+try:
+    with open("/proc/cpuinfo", "r") as f:
+        _cpuinfo = f.read()
+except OSError:
+    _cpuinfo = ""
 
-if "Raspberry" in output:
+if "Raspberry" in _cpuinfo:
     implementation = RaspberryPi()
 elif os.path.exists('/sys/bus/platform/drivers/gpio-x3'):
     implementation = SunriseX3()
