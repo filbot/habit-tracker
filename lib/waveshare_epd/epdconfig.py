@@ -52,7 +52,7 @@ class RaspberryPi:
         self._pins = {}
 
     def _get_pin(self, pin_num, direction="OUT"):
-        """Gets or creates a gpiozero pin object."""
+        """Gets or creates a gpiozero pin object. Returns None for SPI-managed pins."""
         import gpiozero
         if pin_num not in self._pins:
             try:
@@ -61,7 +61,8 @@ class RaspberryPi:
                 else:
                     self._pins[pin_num] = gpiozero.DigitalInputDevice(pin_num, pull_up=False)
             except Exception as e:
-                logger.error(f"Pin {pin_num} allocation failed: {e}")
+                logger.debug(f"Pin {pin_num} not available (likely SPI-managed): {e}")
+                self._pins[pin_num] = None  # Cache the failure so we don't retry
         return self._pins.get(pin_num)
 
     def digital_write(self, pin, value):
@@ -71,14 +72,11 @@ class RaspberryPi:
                 p.on()
             else:
                 p.off()
-        else:
-            logger.warning(f"digital_write: pin {pin} is not available")
 
     def digital_read(self, pin):
         p = self._get_pin(pin, "IN")
         if p:
             return p.value
-        logger.warning(f"digital_read: pin {pin} is not available")
         return 0
 
     def delay_ms(self, delaytime):
@@ -101,9 +99,9 @@ class RaspberryPi:
             self.SPI.mode = 0b00
             
         # Ensure outputs are initialized
+        # Note: CS_PIN (GPIO 8 / CE0) is managed by the SPI driver — don't allocate it
         self._get_pin(self.RST_PIN, "OUT")
         self._get_pin(self.DC_PIN, "OUT")
-        self._get_pin(self.CS_PIN, "OUT")
         self._get_pin(self.PWR_PIN, "OUT")
         self._get_pin(self.BUSY_PIN, "IN")
 
