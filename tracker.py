@@ -251,7 +251,7 @@ def draw_stats(epd):
         value_y = label_y + label_h + inner_gap
         draw_black.text((v_x, value_y), value, font=font_value, fill=0)
     
-    epd.displayPartial(epd.getbuffer(image_black))
+    epd.display(epd.getbuffer(image_black))
 
 def draw_wyao(epd):
     logger.info("Drawing Init State (WYAO)")
@@ -278,8 +278,7 @@ def draw_wyao(epd):
     
     draw_black.text((x, y), text, font=font, fill=0, anchor="mm")
 
-    # Full refresh for WYAO — sets base image and clears ghosting
-    epd.displayPartBaseImage(epd.getbuffer(image_black))
+    epd.display(epd.getbuffer(image_black))
 
 def draw_done_screen(epd):
     logger.info("Drawing Done Screen")
@@ -305,7 +304,7 @@ def draw_done_screen(epd):
     # But let's try pure 'mm' first as it's standard.
     draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
 
-    epd.displayPartial(epd.getbuffer(image_black))
+    epd.display(epd.getbuffer(image_black))
 
 
 class HabitTracker:
