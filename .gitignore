@@ -28,6 +28,8 @@ ENV/
 
 # Project
 stats.json
+habit-tracker.log
+habit.db
 
 # Assets
 *.dxf
