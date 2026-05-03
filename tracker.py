@@ -29,6 +29,32 @@ MOTIVATIONAL_MESSAGES = (
     "Crushing it!", "Let's go!", "Nice work!", "Way to go!",
 )
 
+# Bound history queries to ~1 year; matches api.RECENT_HISTORY_WEEKS.
+RECENT_HISTORY_WEEKS = 53
+
+# Display layout
+LAYOUT_PADDING = 10
+LAYOUT_INNER_GAP = 5
+LAYOUT_INNER_PADDING = 5
+LAYOUT_LABEL_HEIGHT = 14   # slightly larger than font size for safety
+LAYOUT_VALUE_HEIGHT = 28
+STATS_BOX_COUNT = 3
+
+# Font sizes
+FONT_SIZE_LABEL = 12
+FONT_SIZE_VALUE = 24
+FONT_SIZE_MESSAGE = 28
+FONT_SIZE_DONE = 40
+
+# Display state durations
+STATS_DISPLAY_SECONDS = 15
+
+# Pillow fill values for 1-bit images
+COLOR_BLACK = 0
+COLOR_WHITE = 255
+COLOR_BLACK_FILL = 0
+COLOR_WHITE_FILL = 1
+
 def get_font_file():
     """Finds a valid TrueType font file on the system."""
     # 1. Check for a bundled project font (Most reliable)
@@ -146,156 +172,119 @@ def get_weekly_streak(history):
         
     return streak
 
+def _fetch_stats() -> tuple[int, int, int]:
+    """Returns (weekly_volume, weekly_streak, total)."""
+    since = (datetime.now() - timedelta(weeks=RECENT_HISTORY_WEEKS)).isoformat()
+    recent_history = database.get_logs_since(since)
+    offset = database.get_offset()
+    return (
+        get_weekly_volume(recent_history),
+        get_weekly_streak(recent_history),
+        database.get_log_count() + offset,
+    )
+
+
+def _draw_centered_message(draw, width: int, max_y: int, message: str) -> None:
+    """Draw a motivational message horizontally and vertically centered above max_y."""
+    font = get_font(FONT_SIZE_MESSAGE)
+    bbox = font.getbbox(message)
+    msg_w = bbox[2] - bbox[0]
+    msg_h = bbox[3] - bbox[1]
+    msg_x = (width - msg_w) // 2
+    msg_y = (max_y // 2) - (msg_h // 2)
+    draw.text((msg_x, msg_y), message, font=font, fill=COLOR_BLACK_FILL)
+
+
+def _draw_stats_box(draw, x_start: int, y_start: int, box_width: int, box_height: int,
+                    label: str, value: str, font_label, font_value) -> None:
+    """Draw one labelled stats box."""
+    draw.rectangle(
+        [x_start, y_start, x_start + box_width, y_start + box_height],
+        outline=COLOR_BLACK_FILL,
+        width=1,
+    )
+    box_center_x = x_start + (box_width // 2)
+
+    label_y = y_start + LAYOUT_INNER_PADDING
+    bbox_l = font_label.getbbox(label)
+    l_x = box_center_x - ((bbox_l[2] - bbox_l[0]) // 2)
+    draw.text((l_x, label_y), label, font=font_label, fill=COLOR_BLACK_FILL)
+
+    value_y = label_y + LAYOUT_LABEL_HEIGHT + LAYOUT_INNER_GAP
+    bbox_v = font_value.getbbox(value)
+    v_x = box_center_x - ((bbox_v[2] - bbox_v[0]) // 2)
+    draw.text((v_x, value_y), value, font=font_value, fill=COLOR_BLACK_FILL)
+
+
 def draw_stats(epd):
     logger.info("Drawing Update State")
     width = epd.height
     height = epd.width
-    
-    # White background (255)
-    image_black = Image.new('1', (width, height), 255) 
-    
-    draw_black = ImageDraw.Draw(image_black)
-    
-    # Calculate Metrics from Database
-    # Only fetch last ~53 weeks for streak/volume calculation
-    since = (datetime.now() - timedelta(weeks=53)).isoformat()
-    recent_history = database.get_logs_since(since)
-    offset = database.get_offset()
 
-    vol = get_weekly_volume(recent_history)
-    streak = get_weekly_streak(recent_history)
-    total = database.get_log_count() + offset
-    
-    # Layout Constants
-    padding = 10
-    
-    # Fonts
-    font_label = get_font(12)
-    font_value = get_font(24)
-    
-    # Calculate Box Height needed
-    # Label (12) + Gap (5) + Value (24) + Inner Padding (5 top + 5 bottom)
-    label_h = 14 # slightly more than font size to be safe
-    value_h = 28
-    inner_gap = 5
-    inner_padding = 5
-    
-    box_height = inner_padding + label_h + inner_gap + value_h + inner_padding
-    
-    # Bottom area
-    box_y_end = height - padding
+    image = Image.new('1', (width, height), COLOR_WHITE)
+    draw = ImageDraw.Draw(image)
+
+    vol, streak, total = _fetch_stats()
+
+    font_label = get_font(FONT_SIZE_LABEL)
+    font_value = get_font(FONT_SIZE_VALUE)
+
+    box_height = (LAYOUT_INNER_PADDING + LAYOUT_LABEL_HEIGHT
+                  + LAYOUT_INNER_GAP + LAYOUT_VALUE_HEIGHT + LAYOUT_INNER_PADDING)
+    box_y_end = height - LAYOUT_PADDING
     box_y_start = box_y_end - box_height
-    
-    # Calculate box width (3 boxes, 4 gaps of padding)
-    total_gap = 4 * padding
-    available_width = width - total_gap
-    box_width = available_width // 3
-    
-    # --- Top Half: Message (White) ---
-    # Available height for message
-    # From 0 to box_y_start - padding
-    msg_area_height = box_y_start - padding
-    msg_area_center_y = msg_area_height // 2
-    
-    msg = random.choice(MOTIVATIONAL_MESSAGES)
-    font_msg = get_font(28)
-    
-    # Center message
-    bbox = font_msg.getbbox(msg)
-    msg_w = bbox[2] - bbox[0]
-    msg_h = bbox[3] - bbox[1]
-    msg_x = (width - msg_w) // 2
-    msg_y = msg_area_center_y - (msg_h // 2)
-    
-    draw_black.text((msg_x, msg_y), msg, font=font_msg, fill=0)
-    
-    # --- Bottom Half: Stats Boxes (White on Black) ---
-    stats_data = [
+
+    total_gap = (STATS_BOX_COUNT + 1) * LAYOUT_PADDING
+    box_width = (width - total_gap) // STATS_BOX_COUNT
+
+    msg_area_height = box_y_start - LAYOUT_PADDING
+    _draw_centered_message(draw, width, msg_area_height, random.choice(MOTIVATIONAL_MESSAGES))
+
+    stats_data = (
         ("This Week", str(vol)),
         ("Streak", str(streak)),
-        ("Total", str(total))
-    ]
-    
+        ("Total", str(total)),
+    )
     for i, (label, value) in enumerate(stats_data):
-        # Calculate box coordinates
-        x_start = padding + (i * (box_width + padding))
-        x_end = x_start + box_width
-        
-        # Draw Box Outline (White=0)
-        draw_black.rectangle([x_start, box_y_start, x_end, box_y_end], outline=0, width=1)
-        
-        # Center of box
-        box_center_x = x_start + (box_width // 2)
-        
-        # Draw Label (Top of box)
-        bbox_l = font_label.getbbox(label)
-        l_w = bbox_l[2] - bbox_l[0]
-        l_x = box_center_x - (l_w // 2)
-        label_y = box_y_start + inner_padding
-        draw_black.text((l_x, label_y), label, font=font_label, fill=0)
-        
-        # Draw Value (Bottom of box)
-        bbox_v = font_value.getbbox(value)
-        v_w = bbox_v[2] - bbox_v[0]
-        v_x = box_center_x - (v_w // 2)
-        # Position value below label + gap
-        value_y = label_y + label_h + inner_gap
-        draw_black.text((v_x, value_y), value, font=font_value, fill=0)
-    
-    epd.display(epd.getbuffer(image_black))
+        x_start = LAYOUT_PADDING + (i * (box_width + LAYOUT_PADDING))
+        _draw_stats_box(draw, x_start, box_y_start, box_width, box_height,
+                        label, value, font_label, font_value)
+
+    epd.display(epd.getbuffer(image))
+
+WYAO_PADDING = 5
+
 
 def draw_wyao(epd):
     logger.info("Drawing Init State (WYAO)")
     width = epd.height
     height = epd.width
-    
-    # White background (255)
-    image_black = Image.new('1', (width, height), 255) 
-    
-    draw_black = ImageDraw.Draw(image_black)
-    
-    text = "WYAO"
-    padding = 5
-    available_width = width - (2 * padding)
-    available_height = height - (2 * padding)
-    
-    # 1. Find the right font size
-    font = fit_text(draw_black, text, available_width, available_height)
-    
-    # 2. Draw centered using anchor "mm"
-    # This is much more reliable than summing character widths manually
-    x = width // 2
-    y = height // 2
-    
-    draw_black.text((x, y), text, font=font, fill=0, anchor="mm")
 
-    epd.display(epd.getbuffer(image_black))
+    image = Image.new('1', (width, height), COLOR_WHITE)
+    draw = ImageDraw.Draw(image)
+
+    text = "WYAO"
+    available_width = width - (2 * WYAO_PADDING)
+    available_height = height - (2 * WYAO_PADDING)
+
+    font = fit_text(draw, text, available_width, available_height)
+    draw.text((width // 2, height // 2), text, font=font, fill=COLOR_BLACK_FILL, anchor="mm")
+
+    epd.display(epd.getbuffer(image))
+
 
 def draw_done_screen(epd):
     logger.info("Drawing Done Screen")
     width = epd.height
     height = epd.width
-    
-    # Black Background (0)
-    image_black = Image.new('1', (width, height), 0)
-    
-    draw_black = ImageDraw.Draw(image_black)
-    
-    font = get_font(40)
-    text = "DONE"
-    
-    # Draw White text (1) on Black background
-    # Center text using anchor="mm" (Middle-Middle)
-    x = width // 2
-    y = height // 2
-    
-    # Nudge y up slightly because 'mm' centers based on full line height/bbox
-    # and for all-caps, visual center is slightly higher than mathematical center
-    # if the font has descender space.
-    # But let's try pure 'mm' first as it's standard.
-    draw_black.text((x, y), text, font=font, fill=1, anchor="mm")
 
-    epd.display(epd.getbuffer(image_black))
+    image = Image.new('1', (width, height), COLOR_BLACK)
+    draw = ImageDraw.Draw(image)
+
+    font = get_font(FONT_SIZE_DONE)
+    draw.text((width // 2, height // 2), "DONE", font=font, fill=COLOR_WHITE_FILL, anchor="mm")
+
+    epd.display(epd.getbuffer(image))
 
 
 class HabitTracker:
@@ -363,9 +352,8 @@ def main():
         else:
             tracker.update()
 
-            # Wait 15 seconds
-            logger.info("Waiting 15 seconds...")
-            time.sleep(15)
+            logger.info("Waiting %d seconds...", STATS_DISPLAY_SECONDS)
+            time.sleep(STATS_DISPLAY_SECONDS)
 
             tracker.reset()
 

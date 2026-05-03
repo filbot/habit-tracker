@@ -22,6 +22,7 @@ class TestHabitTrackerLocking(unittest.TestCase):
     @patch('tracker.database')
     def test_concurrent_updates_locked(self, mock_db, mock_epd_class):
         mock_epd = mock_epd_class.return_value
+        mock_epd.init.return_value = 0  # _with_display bails out unless init returns 0
         ht = tracker.HabitTracker()
         
         # Track if multiple calls are active
